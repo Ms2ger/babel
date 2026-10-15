@@ -1,11 +1,11 @@
 {
   "name": "@babel/plugin-transform-typescript2",
-  "version": "8.0.1",
+  "version": "8.0.6",
   "description": "Transform TypeScript into ES.next",
   "repository": {
     "type": "git",
     "url": "https://github.com/babel/babel.git",
-    "directory": "packages/babel-plugin-transform-typescript"
+    "directory": "packages/babel-plugin-transform-typescript2"
   },
   "license": "MIT",
   "publishConfig": {
@@ -32,7 +32,7 @@
     "@babel/traverse": "workspace:^",
     "@babel/types": "workspace:^"
   },
-  "homepage": "https://babel.dev/docs/en/next/babel-plugin-transform-typescript",
+  "homepage": "https://babel.dev/docs/en/next/babel-plugin-transform-typescript2",
   "engines": {
     "node": "^22.18.0 || >=24.11.0"
   },

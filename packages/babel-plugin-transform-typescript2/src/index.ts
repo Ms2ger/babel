@@ -209,7 +209,7 @@ export default declare((api, opts: Options) => {
   };
 
   return {
-    name: "transform-typescript",
+    name: "transform-typescript2",
     inherits: syntaxTypeScript,
 
     visitor: traverse.explode({
@@ -221,6 +221,7 @@ export default declare((api, opts: Options) => {
       Program: {
         enter(path, state) {
           const { file } = state;
+          console.log(file);
           let fileJsxPragma = null;
           let fileJsxPragmaFrag = null;
           const programScope = path.scope;
@@ -434,7 +435,7 @@ export default declare((api, opts: Options) => {
           path.node.specifiers.every(
             specifier =>
               t.isExportSpecifier(specifier) &&
-              isGlobalType(path, specifier.local.name),
+              isGlobalType(path, (specifier.local as t.Identifier).name),
           )
         ) {
           path.remove();
@@ -476,7 +477,8 @@ export default declare((api, opts: Options) => {
         type Parent = t.ExportDeclaration & { source?: t.StringLiteral };
         const parent = path.parent as Parent;
         if (
-          (!parent.source && isGlobalType(path, path.node.local.name)) ||
+          (!parent.source &&
+            isGlobalType(path, (path.node.local as t.Identifier).name)) ||
           path.node.exportKind === "type"
         ) {
           path.remove();
@@ -645,7 +647,7 @@ export default declare((api, opts: Options) => {
         path.replaceWith(path.node.expression);
       },
 
-      ["TSAsExpression|TSSatisfiesExpression"](
+      "TSAsExpression|TSSatisfiesExpression"(
         path: NodePath<t.TSAsExpression | t.TSSatisfiesExpression>,
       ) {
         let { node }: { node: t.Expression } = path;
@@ -655,7 +657,7 @@ export default declare((api, opts: Options) => {
         path.replaceWith(node);
       },
 
-      ["TSNonNullExpression|TSInstantiationExpression"](
+      "TSNonNullExpression|TSInstantiationExpression"(
         path: NodePath<t.TSNonNullExpression | t.TSInstantiationExpression>,
       ) {
         path.replaceWith(path.node.expression);
@@ -733,4 +735,4 @@ export default declare((api, opts: Options) => {
 
     return !sourceFileHasJsx;
   }
-});
+}) as object;
