@@ -1,6 +1,0 @@
-{
-  "plugins": [
-    "transform-typescript",
-    ["syntax-decorators", { "version": "legacy" }]
-  ]
-}

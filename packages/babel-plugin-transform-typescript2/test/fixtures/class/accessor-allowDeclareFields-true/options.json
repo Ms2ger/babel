@@ -1,6 +1,0 @@
-{
-  "plugins": [["transform-typescript", { "allowDeclareFields": false }]],
-  "parserOpts": {
-    "plugins": ["decoratorAutoAccessors"]
-  }
-}
