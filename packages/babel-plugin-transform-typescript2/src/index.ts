@@ -151,7 +151,7 @@ export default declare((api, opts: Options) => {
       if (node.abstract) node.abstract = null;
       if (node.readonly) node.readonly = null;
       if (node.optional) node.optional = null;
-      if (node.typeAnnotation) node.typeAnnotation = null;
+      // if (node.typeAnnotation) node.typeAnnotation = null;
       if (node.definite) node.definite = null;
       if (node.declare) node.declare = null;
       if (node.override) node.override = null;
@@ -213,6 +213,7 @@ export default declare((api, opts: Options) => {
     inherits: syntaxTypeScript,
 
     visitor: traverse.explode({
+
       //"Pattern" alias doesn't include Identifier or RestElement.
       Pattern: visitPattern,
       Identifier: visitPattern,
@@ -221,7 +222,7 @@ export default declare((api, opts: Options) => {
       Program: {
         enter(path, state) {
           const { file } = state;
-          console.log(file);
+          // console.log(file);
           let fileJsxPragma = null;
           let fileJsxPragmaFrag = null;
           const programScope = path.scope;
@@ -381,91 +382,94 @@ export default declare((api, opts: Options) => {
           }
         },
         exit(path) {
-          if (
-            path.node.sourceType === "module" &&
-            NEEDS_EXPLICIT_ESM.get(path.node)
-          ) {
-            // If there are no remaining value exports, this file can no longer
-            // be inferred to be ESM. Leave behind an empty export declaration
-            // so it can be.
-            path.pushContainer("body", t.exportNamedDeclaration());
-          }
+          // if (
+          //   path.node.sourceType === "module" &&
+          //   NEEDS_EXPLICIT_ESM.get(path.node)
+          // ) {
+          //   // If there are no remaining value exports, this file can no longer
+          //   // be inferred to be ESM. Leave behind an empty export declaration
+          //   // so it can be.
+          //   path.pushContainer("body", t.exportNamedDeclaration());
+          // }
         },
       },
 
       ExportNamedDeclaration(path, state) {
+        // console.log(path.node);
+
         if (!NEEDS_EXPLICIT_ESM.has(state.file.ast.program)) {
           NEEDS_EXPLICIT_ESM.set(state.file.ast.program, true);
         }
 
-        if (path.node.exportKind === "type") {
-          path.remove();
-          return;
-        }
+        console.log(`***ExportNamedDeclaration*** export`)
+        // if (path.node.exportKind === "type") {
 
-        if (t.isTSImportEqualsDeclaration(path.node.declaration)) {
-          return;
-        }
+        //   return;
+        // }
 
-        // remove export declaration that is filled with type-only specifiers
-        //   export { type A1, type A2 } from "a";
-        if (
-          path.node.source &&
-          path.node.specifiers.length > 0 &&
-          path.node.specifiers.every(
-            specifier =>
-              specifier.type === "ExportSpecifier" &&
-              specifier.exportKind === "type",
-          )
-        ) {
-          path.remove();
-          return;
-        }
+        // if (t.isTSImportEqualsDeclaration(path.node.declaration)) {
+        //   return;
+        // }
 
-        // remove export declaration if it's exporting only types
-        // This logic is needed when exportKind is "value", because
-        // currently the "type" keyword is optional.
-        // TODO:
-        // Also, currently @babel/parser sets exportKind to "value" for
-        //   export interface A {}
-        //   etc.
-        if (
-          !path.node.source &&
-          path.node.specifiers.length > 0 &&
-          path.node.specifiers.every(
-            specifier =>
-              t.isExportSpecifier(specifier) &&
-              isGlobalType(path, (specifier.local as t.Identifier).name),
-          )
-        ) {
-          path.remove();
-          return;
-        }
+        // // remove export declaration that is filled with type-only specifiers
+        // //   export { type A1, type A2 } from "a";
+        // if (
+        //   path.node.source &&
+        //   path.node.specifiers.length > 0 &&
+        //   path.node.specifiers.every(
+        //     specifier =>
+        //       specifier.type === "ExportSpecifier" &&
+        //       specifier.exportKind === "type",
+        //   )
+        // ) {
+        //   path.remove();
+        //   return;
+        // }
+
+        // // remove export declaration if it's exporting only types
+        // // This logic is needed when exportKind is "value", because
+        // // currently the "type" keyword is optional.
+        // // TODO:
+        // // Also, currently @babel/parser sets exportKind to "value" for
+        // //   export interface A {}
+        // //   etc.
+        // if (
+        //   !path.node.source &&
+        //   path.node.specifiers.length > 0 &&
+        //   path.node.specifiers.every(
+        //     specifier =>
+        //       t.isExportSpecifier(specifier) &&
+        //       isGlobalType(path, (specifier.local as t.Identifier).name),
+        //   )
+        // ) {
+        //   path.remove();
+        //   return;
+        // }
 
         // Convert `export namespace X {}` into `export let X; namespace X {}`,
         // so that when visiting TSModuleDeclaration we do not have to possibly
         // replace its parent path.
-        if (t.isTSModuleDeclaration(path.node.declaration)) {
-          const namespace = path.node.declaration;
-          if (!t.isStringLiteral(namespace.id)) {
-            const id = getFirstIdentifier(namespace.id);
-            if (path.scope.hasOwnBinding(id.name)) {
-              path.replaceWith(namespace);
-            } else {
-              const [newExport] = path.replaceWithMultiple([
-                t.exportNamedDeclaration(
-                  t.variableDeclaration("let", [
-                    t.variableDeclarator(t.cloneNode(id)),
-                  ]),
-                ),
-                namespace,
-              ]);
-              path.scope.registerDeclaration(newExport);
-            }
-          }
-        }
+        // if (t.isTSModuleDeclaration(path.node.declaration)) {
+        //   const namespace = path.node.declaration;
+        //   if (!t.isStringLiteral(namespace.id)) {
+        //     const id = getFirstIdentifier(namespace.id);
+        //     if (path.scope.hasOwnBinding(id.name)) {
+        //       path.replaceWith(namespace);
+        //     } else {
+        //       const [newExport] = path.replaceWithMultiple([
+        //         t.exportNamedDeclaration(
+        //           t.variableDeclaration("let", [
+        //             t.variableDeclarator(t.cloneNode(id)),
+        //           ]),
+        //         ),
+        //         namespace,
+        //       ]);
+        //       path.scope.registerDeclaration(newExport);
+        //     }
+        //   }
+        // }
 
-        NEEDS_EXPLICIT_ESM.set(state.file.ast.program, false);
+        // NEEDS_EXPLICIT_ESM.set(state.file.ast.program, false);
       },
 
       ExportAllDeclaration(path) {
@@ -486,28 +490,32 @@ export default declare((api, opts: Options) => {
       },
 
       ExportDefaultDeclaration(path, state) {
-        if (!NEEDS_EXPLICIT_ESM.has(state.file.ast.program)) {
-          NEEDS_EXPLICIT_ESM.set(state.file.ast.program, true);
-        }
-
-        // remove whole declaration if it's exporting a TS type
-        if (
-          t.isIdentifier(path.node.declaration) &&
-          isGlobalType(path, path.node.declaration.name)
-        ) {
-          path.remove();
-
-          return;
-        }
-
-        NEEDS_EXPLICIT_ESM.set(state.file.ast.program, false);
+        // TODO:
+        // export default "foo";
+        // →
+        // declare const _default: "foo";
+        // export default _default;
+        console.log(`***ExportDefaultDeclaration*** export default`);
       },
 
+      FunctionDeclaration({node}) {
+        console.log(`***FunctionDeclaration*** function ${node.id?.name ?? ""}(): _;`);
+        console.log(node.returnType)
+      },
+      TSTypeAnnotation(path) {
+        // TODO unreached
+        console.log(`***TSTypeAnnotation*** ${path.node}`);
+      },
+      TSNumberKeyword() {
+        console.log(`***TSNumberKeyword*** number`)
+      },
       TSDeclareFunction(path) {
+        // TODO
         safeRemove(path);
       },
 
       TSDeclareMethod(path) {
+        // TODO
         safeRemove(path);
       },
 
@@ -586,7 +594,7 @@ export default declare((api, opts: Options) => {
       },
 
       TSTypeAliasDeclaration(path) {
-        path.remove();
+        console.log(`***TSTypeAliasDeclaration*** ${path}`)
       },
 
       TSEnumDeclaration(path) {
@@ -632,6 +640,7 @@ export default declare((api, opts: Options) => {
         path.scope.registerDeclaration(path);
       },
       TSExportAssignment(path, pass) {
+        console.log(path);
         assertCjsTransformEnabled(
           path,
           pass,
@@ -696,8 +705,8 @@ export default declare((api, opts: Options) => {
   function visitPattern({
     node,
   }: NodePath<t.Identifier | t.Pattern | t.RestElement>) {
-    // @ts-expect-error typeAnnotation does not exist in VoidPattern
-    if (node.typeAnnotation) node.typeAnnotation = null;
+    // // @ts-expect-error typeAnnotation does not exist in VoidPattern
+    // if (node.typeAnnotation) node.typeAnnotation = null;
     if (t.isIdentifier(node) && node.optional) node.optional = null;
     // 'access' and 'readonly' are only for parameter properties, so constructor visitor will handle them.
   }
