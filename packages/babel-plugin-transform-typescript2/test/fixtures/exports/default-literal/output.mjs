@@ -1,5 +1,5 @@
 import type { Component as X } from "a";
-import type { "Component" as Y } from "a";
+import type { "*" as Y } from "a";
 import type * as Z from "a";
 import type foox from "a";
 export type Component = X;
@@ -10,10 +10,16 @@ Array.from([]);
 {
   let x = 7;
 }
-export function foo(): string
-export function bar(): number
+export function foo(): string {
+  return "8";
+}
+export function bar(): number {
+  return 7 + 8;
+}
 //export default function () {};
 
 export default "foo";
-export function baz(): void
+export function baz(): void {
+  return;
+}
 export type cat = number;

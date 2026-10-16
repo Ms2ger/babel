@@ -352,45 +352,45 @@ export default declare((api, opts: Options) => {
               continue;
             }
 
-            if (!onlyRemoveTypeImports && stmt.isTSImportEqualsDeclaration()) {
-              const { id } = stmt.node;
-              const binding = stmt.scope.getBinding(id.name);
-              if (
-                binding &&
-                isImportTypeOnly({
-                  binding,
-                  programPath: path,
-                  pragmaImportName,
-                  pragmaFragImportName,
-                })
-              ) {
-                stmt.remove();
-                continue;
-              }
-            }
+            // if (!onlyRemoveTypeImports && stmt.isTSImportEqualsDeclaration()) {
+            //   const { id } = stmt.node;
+            //   const binding = stmt.scope.getBinding(id.name);
+            //   if (
+            //     binding &&
+            //     isImportTypeOnly({
+            //       binding,
+            //       programPath: path,
+            //       pragmaImportName,
+            //       pragmaFragImportName,
+            //     })
+            //   ) {
+            //     stmt.remove();
+            //     continue;
+            //   }
+            // }
 
             if (stmt.isExportDeclaration()) {
               stmt = stmt.get("declaration") as NodePath<t.Declaration>;
             }
 
-            if (stmt.isVariableDeclaration({ declare: true })) {
-              for (const name of Object.keys(stmt.getBindingIdentifiers())) {
-                registerGlobalType(programScope, name);
-              }
-            } else if (
-              stmt.isTSTypeAliasDeclaration() ||
-              (stmt.isTSDeclareFunction() && stmt.get("id").isIdentifier()) ||
-              stmt.isTSInterfaceDeclaration() ||
-              stmt.isClassDeclaration({ declare: true }) ||
-              stmt.isTSEnumDeclaration({ declare: true }) ||
-              (stmt.isTSModuleDeclaration({ declare: true }) &&
-                stmt.get("id").isIdentifier())
-            ) {
-              registerGlobalType(
-                programScope,
-                (stmt.node.id as t.Identifier).name,
-              );
-            }
+          //   if (stmt.isVariableDeclaration({ declare: true })) {
+          //     for (const name of Object.keys(stmt.getBindingIdentifiers())) {
+          //       registerGlobalType(programScope, name);
+          //     }
+          //   } else if (
+          //     stmt.isTSTypeAliasDeclaration() ||
+          //     (stmt.isTSDeclareFunction() && stmt.get("id").isIdentifier()) ||
+          //     stmt.isTSInterfaceDeclaration() ||
+          //     stmt.isClassDeclaration({ declare: true }) ||
+          //     stmt.isTSEnumDeclaration({ declare: true }) ||
+          //     (stmt.isTSModuleDeclaration({ declare: true }) &&
+          //       stmt.get("id").isIdentifier())
+          //   ) {
+          //     registerGlobalType(
+          //       programScope,
+          //       (stmt.node.id as t.Identifier).name,
+          //     );
+          //   }
           }
         },
         exit(path) {
@@ -412,32 +412,33 @@ export default declare((api, opts: Options) => {
         if (path.node.importKind !== "type") {
           return;
         }
-        dts("ImportDeclaration", `import `);
-        dts("ImportDeclaration", "type ");
-        dts("ImportDeclaration", `{ `);
-        for (const specifier of path.node.specifiers) {
-          if (isImportNamespaceSpecifier(specifier)) {
-            dts("ImportSpecifier", `*`);
-            let local = specifier.local;
-            // if (local) {
-            dts("ImportSpecifier", ` as ${local.name}`);
-            // }
-          } else if (isImportDefaultSpecifier(specifier)) {
-            dts("ImportSpecifier", `${specifier.local.name}`);
-          } else {
-            let imported = specifier.imported;
-            if (isStringLiteral(imported)) {
-              dts("ImportSpecifier", `${imported.value}`);
-            } else {
-              dts("ImportSpecifier", `${imported.name}`);
-            }
-            let local = specifier.local;
-            if (local) {
-              dts("ImportSpecifier", ` as ${local.name}`);
-            }
-          }
-        }
-        dts("ImportDeclaration", ` } from "${path.node.source.value}";\n`);
+        dts("ImportDeclaration", generate(path.node).code + "\n");
+        // dts("ImportDeclaration", `import `);
+        // dts("ImportDeclaration", "type ");
+        // dts("ImportDeclaration", `{ `);
+        // for (const specifier of path.node.specifiers) {
+        //   if (isImportNamespaceSpecifier(specifier)) {
+        //     dts("ImportSpecifier", `*`);
+        //     let local = specifier.local;
+        //     // if (local) {
+        //     dts("ImportSpecifier", ` as ${local.name}`);
+        //     // }
+        //   } else if (isImportDefaultSpecifier(specifier)) {
+        //     dts("ImportSpecifier", `${specifier.local.name}`);
+        //   } else {
+        //     let imported = specifier.imported;
+        //     if (isStringLiteral(imported)) {
+        //       dts("ImportSpecifier", `${imported.value}`);
+        //     } else {
+        //       dts("ImportSpecifier", `${imported.name}`);
+        //     }
+        //     let local = specifier.local;
+        //     if (local) {
+        //       dts("ImportSpecifier", ` as ${local.name}`);
+        //     }
+        //   }
+        // }
+        // dts("ImportDeclaration", ` } from "${path.node.source.value}";\n`);
       },
       // ImportDeclaration: {
       //   enter(path, state) {
@@ -464,12 +465,18 @@ export default declare((api, opts: Options) => {
       // },
       ExportNamedDeclaration: {
         enter(path, state) {
+          // let node = t.tsDeclareFunction(path.node., typeParameters, params, returnType);
+          // dts("ExportNamedDeclaration", generate(path.node).code);
+          // path.skip();
+          // return;
+          console.log(`ExportNamedDeclaration:`, path.node)
           dts("ExportNamedDeclaration", "export ");
           if (path.node.exportKind !== "type") {
             dts("ExportNamedDeclaration", "declare ");
           }
         },
         exit() {
+          // FIXME TSDeclareFunction adds a semicolon
           dts("ExportNamedDeclaration", `;\n`);
         },
         // console.log(path.node);
@@ -576,12 +583,18 @@ export default declare((api, opts: Options) => {
       },
 
       FunctionDeclaration: {
-        enter({node}) {
-          dts("FunctionDeclaration", `function ${node.id?.name ?? ""}(): `);
+        enter(path) {
+          let node = path.node;
+          // dts("FunctionDeclaration", `function ${node.id?.name ?? ""}(): `);
           if (!node.returnType) {
             throw new Error(`Must declare the return type of function ${node.id?.name ?? ""}`);
           }
-          console.log(node.returnType)
+          // FIXME
+          let newNode = t.tsDeclareFunction(node.id, node.typeParameters, node.params, node.returnType);
+          dts("FunctionDeclaration", generate(newNode).code);
+          // console.log(node.returnType)
+          path.skip();
+
         },
         exit() {
           // dts("FunctionDeclaration", `;\n`);
@@ -594,17 +607,23 @@ export default declare((api, opts: Options) => {
         // TODO unreached
         // dts("TSTypeAnnotation", `${path.node}`);
       },
-      TSVoidKeyword() {
-        dts("TSNumberKeyword", `void`);
+      TSTypeAliasDeclaration(path) {
+        // TODO unreached
+        dts("TSTypeAliasDeclaration", generate(path.node).code);
+        path.skip();
+        // dts("TSTypeAnnotation", `${path.node}`);
       },
-      TSNumberKeyword() {
-        dts("TSNumberKeyword", `number`);
-      },
-      TSStringKeyword() {
-        dts("TSNumberKeyword", `string`);
-      },
-      TSType() {
-        dts("TSType", `string`);
+      // TSVoidKeyword() {
+      //   dts("TSNumberKeyword", `void`);
+      // },
+      // TSNumberKeyword() {
+      //   dts("TSNumberKeyword", `number`);
+      // },
+      // TSStringKeyword() {
+      //   dts("TSNumberKeyword", `string`);
+      // },
+      TSType({node}) {
+        dts("TSType", generate(node).code);
 
       },
       TSDeclareFunction(path) {
@@ -690,11 +709,6 @@ export default declare((api, opts: Options) => {
 
       TSInterfaceDeclaration(path) {
         path.remove();
-      },
-
-      TSTypeAliasDeclaration(path) {
-        dts("TSTypeAliasDeclaration", ``);
-        console.log(path.node)
       },
 
       TSEnumDeclaration(path) {
