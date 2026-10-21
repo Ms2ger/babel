@@ -24,3 +24,6 @@ export default "foo";
 export function baz() : void { return }
 
 export type cat = number;
+export declare var x1: number;
+declare var x2: number;
+var x3: number = 3;
