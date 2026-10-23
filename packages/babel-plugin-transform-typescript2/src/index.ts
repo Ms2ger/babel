@@ -20,7 +20,8 @@ import {
   registerGlobalType,
 } from "./global-types.ts";
 import transpileNamespace, { getFirstIdentifier } from "./namespace.ts";
-import { isImportDefaultSpecifier, isImportNamespaceSpecifier, isStringLiteral } from "@babel/types";
+import { isImportDefaultSpecifier, isImportNamespaceSpecifier, isImportSpecifier, isStringLiteral } from "@babel/types";
+// import { ImportDeclaration } from "../../babel-generator/src/generators/modules.ts";
 
 function isInType(path: NodePath) {
   switch (path.parent.type) {
@@ -210,10 +211,14 @@ export default declare((api, opts: Options) => {
     },
   };
 
-  let output = "";
+  let output: (t.Node | string)[] = [];
   const dts = (pattern: string, s: string) => {
     console.log(`***${pattern}*** ${s}`);
-    output += s;
+    output.push(s);
+  };
+  const dts2 = (pattern: string, s: t.Node) => {
+    console.log(`***${pattern}*** ${generate(s).code + "\n"}`);
+    output.push(s);
   };
   return {
     name: "transform-typescript2",
@@ -276,132 +281,14 @@ export default declare((api, opts: Options) => {
               stmt.isExportDeclaration() ||
               false
             )) {
-              stmt.remove();
+              stmt.remove(); // FIXME
             }
-            // if (stmt.isImportDeclaration()) {
-            //   if (!NEEDS_EXPLICIT_ESM.has(state.file.ast.program)) {
-            //     NEEDS_EXPLICIT_ESM.set(state.file.ast.program, true);
-            //   }
-
-            //   if (stmt.node.importKind === "type") {
-            //     for (const specifier of stmt.node.specifiers) {
-            //       registerGlobalType(programScope, specifier.local.name);
-            //     }
-            //     // stmt.remove();
-            //     continue;
-            //   }
-
-            //   const importsToRemove = new Set<NodePath<t.Node>>();
-            //   const specifiersLength = stmt.node.specifiers.length;
-            //   const isAllSpecifiersElided = () =>
-            //     specifiersLength > 0 &&
-            //     specifiersLength === importsToRemove.size;
-
-            //   for (const specifier of stmt.node.specifiers) {
-            //     if (
-            //       specifier.type === "ImportSpecifier" &&
-            //       specifier.importKind === "type"
-            //     ) {
-            //       registerGlobalType(programScope, specifier.local.name);
-            //       // const binding = stmt.scope.getBinding(specifier.local.name);
-            //       // if (binding) {
-            //       //   importsToRemove.add(binding.path);
-            //       // }
-            //     }
-            //   }
-
-            //   // If onlyRemoveTypeImports is `true`, only remove type-only imports
-            //   // and exports introduced in TypeScript 3.8.
-            //   if (onlyRemoveTypeImports) {
-            //     NEEDS_EXPLICIT_ESM.set(path.node, false);
-            //   } else {
-            //     // Note: this will allow both `import { } from "m"` and `import "m";`.
-            //     // In TypeScript, the former would be elided.
-            //     if (stmt.node.specifiers.length === 0) {
-            //       NEEDS_EXPLICIT_ESM.set(path.node, false);
-            //       continue;
-            //     }
-
-            //     for (const specifier of stmt.node.specifiers) {
-            //       const binding = stmt.scope.getBinding(specifier.local.name);
-
-            //       // The binding may not exist if the import node was explicitly
-            //       // injected by another plugin. Currently core does not do a good job
-            //       // of keeping scope bindings synchronized with the AST. For now we
-            //       // just bail if there is no binding, since chances are good that if
-            //       // the import statement was injected then it wasn't a typescript type
-            //       // import anyway.
-            //       if (binding && !importsToRemove.has(binding.path)) {
-            //         if (
-            //           isImportTypeOnly({
-            //             binding,
-            //             programPath: path,
-            //             pragmaImportName,
-            //             pragmaFragImportName,
-            //           })
-            //         ) {
-            //           importsToRemove.add(binding.path);
-            //         } else {
-            //           NEEDS_EXPLICIT_ESM.set(path.node, false);
-            //         }
-            //       }
-            //     }
-              // }
-
-              // if (isAllSpecifiersElided() && !onlyRemoveTypeImports) {
-              //   stmt.remove();
-              // } else {
-              //   for (const importPath of importsToRemove) {
-              //     importPath.remove();
-              //   }
-              // }
-
-              // continue;
-            // }
-
-            // if (!onlyRemoveTypeImports && stmt.isTSImportEqualsDeclaration()) {
-            //   const { id } = stmt.node;
-            //   const binding = stmt.scope.getBinding(id.name);
-            //   if (
-            //     binding &&
-            //     isImportTypeOnly({
-            //       binding,
-            //       programPath: path,
-            //       pragmaImportName,
-            //       pragmaFragImportName,
-            //     })
-            //   ) {
-            //     stmt.remove();
-            //     continue;
-            //   }
-            // }
-
-            // if (stmt.isExportDeclaration()) {
-            //   stmt = stmt.get("declaration") as NodePath<t.Declaration>;
-            // }
-
-          //   if (stmt.isVariableDeclaration({ declare: true })) {
-          //     for (const name of Object.keys(stmt.getBindingIdentifiers())) {
-          //       registerGlobalType(programScope, name);
-          //     }
-          //   } else if (
-          //     stmt.isTSTypeAliasDeclaration() ||
-          //     (stmt.isTSDeclareFunction() && stmt.get("id").isIdentifier()) ||
-          //     stmt.isTSInterfaceDeclaration() ||
-          //     stmt.isClassDeclaration({ declare: true }) ||
-          //     stmt.isTSEnumDeclaration({ declare: true }) ||
-          //     (stmt.isTSModuleDeclaration({ declare: true }) &&
-          //       stmt.get("id").isIdentifier())
-          //   ) {
-          //     registerGlobalType(
-          //       programScope,
-          //       (stmt.node.id as t.Identifier).name,
-          //     );
-          //   }
           }
+
         },
         exit(path) {
           console.log(output);
+          path.node.body = output.filter(x => typeof x === "object");
           // if (
           //   path.node.sourceType === "module" &&
           //   NEEDS_EXPLICIT_ESM.get(path.node)
@@ -416,10 +303,22 @@ export default declare((api, opts: Options) => {
 
       ImportDeclaration(path, state) {
         path.skip();
-        if (path.node.importKind !== "type") {
-          return;
+
+        let node;
+        if (path.node.importKind === "type") {
+          node = path.node;
+        } else {
+          // console.log('---ImportDeclaration---', path.node.specifiers)
+          const specifiers = path.node.specifiers.filter(sp => {
+            // console.log(`---ImportDeclaration--- * {!isImportSpecifier(sp)} || {sp.importKind == "type"}`)
+            return !isImportSpecifier(sp) || sp.importKind == "type" // how about "typeof"?
+          });
+          if (!specifiers) {
+            return;
+          }
+          node = t.importDeclaration(specifiers, path.node.source, path.node.attributes);
         }
-        dts("ImportDeclaration", generate(path.node).code + "\n");
+        dts2("ImportDeclaration", node);
         // dts("ImportDeclaration", `import `);
         // dts("ImportDeclaration", "type ");
         // dts("ImportDeclaration", `{ `);
@@ -477,17 +376,18 @@ export default declare((api, opts: Options) => {
           // path.skip();
           // return;
           console.log(`ExportNamedDeclaration:`, path.node)
-          dts("ExportNamedDeclaration", "export ");
-          if (path.node.exportKind !== "type") {
-            dts("ExportNamedDeclaration", "declare ");
-          }
-          // dts("ExportNamedDeclaration", generate(path.node).code + "\n");
+          dts2("ExportNamedDeclaration", path.node);
+          // dts("ExportNamedDeclaration", "export ");
+          // if (path.node.exportKind !== "type") {
+          //   dts("ExportNamedDeclaration", "declare ");
+          // }
+          // // dts("ExportNamedDeclaration", generate(path.node).code + "\n");
           // path.skip();
 
         },
         exit() {
           // FIXME TSDeclareFunction adds a semicolon
-          dts("ExportNamedDeclaration", `;\n`);
+          // dts("ExportNamedDeclaration", `;\n`);
         },
         // console.log(path.node);
 
@@ -585,10 +485,12 @@ export default declare((api, opts: Options) => {
         // declare const _default: "foo";
         // export default _default;
         enter({node}) {
-          dts("ExportDefaultDeclaration", "export default ");
+          dts2("ExportDefaultDeclaration", node);
+
+          // dts("ExportDefaultDeclaration", "export default ");
         },
         exit() {
-          dts("ExportDefaultDeclaration", `;\n`);
+          // dts("ExportDefaultDeclaration", `;\n`);
         },
       },
 
@@ -600,8 +502,12 @@ export default declare((api, opts: Options) => {
             throw new Error(`Must declare the return type of function ${node.id?.name ?? ""}`);
           }
           // FIXME
-          let newNode = t.tsDeclareFunction(node.id, node.typeParameters, node.params, node.returnType);
-          dts("FunctionDeclaration", generate(newNode).code);
+          let newNode = t.tsDeclareFunction(
+            t.cloneNode(node.id),
+            t.cloneNode(node.typeParameters),
+            node.params,
+            t.cloneNode(node.returnType));
+          dts2("FunctionDeclaration", newNode);
           // console.log(node.returnType)
           path.skip();
 
@@ -705,11 +611,13 @@ export default declare((api, opts: Options) => {
         // if (node.typeParameters) node.typeParameters = null;
         // if (node.returnType) node.returnType = null;
         if (node.body) node.body = null;
+        // TODO unreached
 
-        const params = node.params;
-        if (params.length > 0 && t.isIdentifier(params[0], { name: "this" })) {
-          params.shift();
-        }
+        // TODO review
+        // const params = node.params;
+        // if (params.length > 0 && t.isIdentifier(params[0], { name: "this" })) {
+        //   params.shift();
+        // }
       },
 
       TSModuleDeclaration(path) {
