@@ -1,25 +1,11 @@
-import type { Component as X } from "a";
-import type { "*" as Y } from "a";
-import type * as Z from "a";
-import type foox from "a";
-export type Component = X;
-export type Component2 = Y;
-export type Component3 = typeof Z;
-export type Component4 = typeof foox;
-Array.from([]);
+declare var quux1: () => void;
+export { quux1 };
 {
-  let x = 7;
+  declare var quux2: () => void;
 }
-export function foo(): string {
-  return "8";
-}
-export function bar(): number {
-  return 7 + 8;
-}
-//export default function () {};
-
-export default "foo";
-export function baz(): void {
-  return;
-}
-export type cat = number;
+export { quux2 };
+declare function quux4(): void;
+export { quux4 };
+declare var quux6a: () => void;
+export { quux6a };
+export default function (): void;

@@ -20,7 +20,7 @@ import {
   registerGlobalType,
 } from "./global-types.ts";
 import transpileNamespace, { getFirstIdentifier } from "./namespace.ts";
-import { isImportDefaultSpecifier, isImportNamespaceSpecifier, isImportSpecifier, isStringLiteral } from "@babel/types";
+import { isExportDefaultDeclaration, isFunctionDeclaration, isFunctionExpression, isIdentifier, isImportDefaultSpecifier, isImportNamespaceSpecifier, isImportSpecifier, isStringLiteral } from "@babel/types";
 // import { ImportDeclaration } from "../../babel-generator/src/generators/modules.ts";
 
 function isInType(path: NodePath) {
@@ -220,6 +220,27 @@ export default declare((api, opts: Options) => {
     console.log(`***${pattern}*** ${generate(s).code + "\n"}`);
     output.push(s);
   };
+  function isReachableFromExport(id: string | undefined, scope) : boolean {
+    if (!id) {
+      // TODO check if part of default export
+      console.log()
+      return false;
+    }
+    let binding = scope.getBinding(id);
+    if (!binding) {
+      throw new Error(`Unexpected missing binding for id {id}`);
+    }
+    // console.log("binding:", binding?.referencePaths)
+    for (const ref of binding.referencePaths) {
+      if (ref.container.type === "ExportSpecifier") {
+        return true;
+      }
+
+    }
+
+    return false;
+  }
+  const seen = new WeakSet();
   return {
     name: "transform-typescript2",
     inherits: syntaxTypeScript,
@@ -232,9 +253,9 @@ export default declare((api, opts: Options) => {
       RestElement: visitPattern,
 
 
-      BlockStatement(path) {
-        path.skip();
-      },
+      // BlockStatement(path) {
+      //   path.skip();
+      // },
       Program: {
         enter(path, state) {
           // throw 7;
@@ -281,14 +302,14 @@ export default declare((api, opts: Options) => {
               stmt.isExportDeclaration() ||
               false
             )) {
-              stmt.remove(); // FIXME
+              // stmt.remove(); // FIXME
             }
           }
 
         },
         exit(path) {
           console.log(output);
-          path.node.body = output.filter(x => typeof x === "object");
+          // path.node.body = output.filter(x => typeof x === "object");
           // if (
           //   path.node.sourceType === "module" &&
           //   NEEDS_EXPLICIT_ESM.get(path.node)
@@ -375,7 +396,8 @@ export default declare((api, opts: Options) => {
           // dts("ExportNamedDeclaration", generate(path.node).code);
           // path.skip();
           // return;
-          console.log(`ExportNamedDeclaration:`, path.node)
+          // console.log(`ExportNamedDeclaration:`, path.node)
+          console.log("binding:", path.scope.getBinding(path.node.specifiers[0].local.name)?.referencePaths)
           dts2("ExportNamedDeclaration", path.node);
           // dts("ExportNamedDeclaration", "export ");
           // if (path.node.exportKind !== "type") {
@@ -497,6 +519,21 @@ export default declare((api, opts: Options) => {
       FunctionDeclaration: {
         enter(path) {
           let node = path.node;
+          console.log(`---FunctionDeclaration ${path.node.id?.name}`)
+          let parent: NodePath = path;
+          let isDefaultExport = false;
+          while ((parent = parent.parentPath)) {
+            if (isExportDefaultDeclaration(parent.node)) {
+              isDefaultExport = true;
+            }
+          }
+          console.log(`isDefaultExport=${isDefaultExport}`)
+          if (!isDefaultExport && !isReachableFromExport(path.node.id?.name, path.scope)) {
+            console.log("    -- skipping")
+            path.remove();
+            return;
+          }
+          console.log("    -- not skipping")
           // dts("FunctionDeclaration", `function ${node.id?.name ?? ""}(): `);
           if (!node.returnType) {
             throw new Error(`Must declare the return type of function ${node.id?.name ?? ""}`);
@@ -507,9 +544,13 @@ export default declare((api, opts: Options) => {
             t.cloneNode(node.typeParameters),
             node.params,
             t.cloneNode(node.returnType));
-          dts2("FunctionDeclaration", newNode);
+          if (!isDefaultExport) {
+            newNode.declare = true;
+          }
+          // dts2("FunctionDeclaration", newNode);
+          path.replaceWith(newNode);
           // console.log(node.returnType)
-          path.skip();
+          // path.skip();
 
         },
         exit() {
@@ -553,8 +594,38 @@ export default declare((api, opts: Options) => {
       },
 
       VariableDeclaration(path) {
-        dts("VariableDeclaration", generate(path.node).code);
-        path.skip();
+        if (seen.has(path.node)) {
+          return;
+        }
+        console.log("VariableDeclaration: before=", path.node.declarations)
+        const vars = path.node.declarations.filter(decl => {
+          return t.isIdentifier(decl.id) && isReachableFromExport(decl.id.name, path.scope)
+        }).map(decl => {
+          const declarator = t.cloneNode(decl);
+          if (isIdentifier(declarator.id) &&
+              !declarator.id.typeAnnotation &&
+              isFunctionExpression(declarator.init)) {
+            declarator.id.typeAnnotation = t.tsTypeAnnotation(t.tsFunctionType(
+              declarator.init.typeParameters, // XXX
+              declarator.init.params,
+              declarator.init.returnType,
+            ))
+          }
+          declarator.init = null;
+
+          return declarator;
+        });
+        console.log("VariableDeclaration: after=", vars)
+        if (!vars) {
+          path.skip();
+          return;
+        }
+        let decl = t.variableDeclaration(path.node.kind, vars);
+        decl.declare = true;
+        // dts2("VariableDeclaration", decl);
+        path.replaceWith(decl);
+        seen.add(decl);
+        // path.skip();
       },
 
       VariableDeclarator({ node }) {
@@ -738,7 +809,7 @@ export default declare((api, opts: Options) => {
   }: NodePath<t.Identifier | t.Pattern | t.RestElement>) {
     // // @ts-expect-error typeAnnotation does not exist in VoidPattern
     // if (node.typeAnnotation) node.typeAnnotation = null;
-    if (t.isIdentifier(node) && node.optional) node.optional = null;
+    // if (t.isIdentifier(node) && node.optional) node.optional = null;
     // 'access' and 'readonly' are only for parameter properties, so constructor visitor will handle them.
   }
 
