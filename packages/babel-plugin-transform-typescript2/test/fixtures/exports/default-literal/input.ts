@@ -1,3 +1,9 @@
+export function foo() : string {
+  return "8";
+}
+export function bar() : number {
+  return 7 + 8;
+}
 var quux1: () => void = function() : void { return }
 export {quux1};
 

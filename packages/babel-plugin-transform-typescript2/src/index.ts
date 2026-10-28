@@ -20,7 +20,7 @@ import {
   registerGlobalType,
 } from "./global-types.ts";
 import transpileNamespace, { getFirstIdentifier } from "./namespace.ts";
-import { isExportDefaultDeclaration, isFunctionDeclaration, isFunctionExpression, isIdentifier, isImportDefaultSpecifier, isImportNamespaceSpecifier, isImportSpecifier, isStringLiteral } from "@babel/types";
+import { isExportDeclaration, isExportDefaultDeclaration, isFunctionDeclaration, isFunctionExpression, isIdentifier, isImportDefaultSpecifier, isImportNamespaceSpecifier, isImportSpecifier, isStringLiteral } from "@babel/types";
 // import { ImportDeclaration } from "../../babel-generator/src/generators/modules.ts";
 
 function isInType(path: NodePath) {
@@ -397,7 +397,7 @@ export default declare((api, opts: Options) => {
           // path.skip();
           // return;
           // console.log(`ExportNamedDeclaration:`, path.node)
-          console.log("binding:", path.scope.getBinding(path.node.specifiers[0].local.name)?.referencePaths)
+          // console.log("binding:", path.scope.getBinding(path.node.specifiers[0].local.name)?.referencePaths)
           dts2("ExportNamedDeclaration", path.node);
           // dts("ExportNamedDeclaration", "export ");
           // if (path.node.exportKind !== "type") {
@@ -521,14 +521,19 @@ export default declare((api, opts: Options) => {
           let node = path.node;
           console.log(`---FunctionDeclaration ${path.node.id?.name}`)
           let parent: NodePath = path;
-          let isDefaultExport = false;
+          let isExport = false, isDefaultExport = false;
           while ((parent = parent.parentPath)) {
             if (isExportDefaultDeclaration(parent.node)) {
               isDefaultExport = true;
+              break;
+            }
+            if (isExportDeclaration(parent.node)) {
+              isExport = true;
+              break;
             }
           }
-          console.log(`isDefaultExport=${isDefaultExport}`)
-          if (!isDefaultExport && !isReachableFromExport(path.node.id?.name, path.scope)) {
+          console.log(`isExport=${isExport}`)
+          if (!isExport && !isDefaultExport && !isReachableFromExport(path.node.id?.name, path.scope)) {
             console.log("    -- skipping")
             path.remove();
             return;

@@ -1,3 +1,5 @@
+export declare function foo(): string;
+export declare function bar(): number;
 declare var quux1: () => void;
 export { quux1 };
 {
