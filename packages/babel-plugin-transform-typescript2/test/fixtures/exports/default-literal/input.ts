@@ -39,3 +39,20 @@ var quux4a = function() : void { return }, quux4b = function() : void { return }
 export {quux4a};
 
 export default function() : void{}
+
+export declare class C1 {
+  f1: string;
+  f2(): void;
+  f3(a: string): string;
+  f3(a: number): number;
+  get f4(): bigint;
+  set f4(value: bigint);
+}
+
+export class C2 {
+  f1: string = "";
+  f2(): void { return };
+  get f4(): bigint { return 0n };
+  set f4(value: bigint) {};
+}
+

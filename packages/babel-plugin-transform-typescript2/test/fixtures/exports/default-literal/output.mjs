@@ -22,3 +22,17 @@ export { quux3b };
 declare var quux4a: () => void;
 export { quux4a };
 export default function (): void;
+export declare class C1 {
+  f1: string;
+  f2(): void;
+  f3(a: string): string;
+  f3(a: number): number;
+  get f4(): bigint;
+  set f4(value: bigint);
+}
+export declare class C2 {
+  f1: string;
+  f2(): void
+  get f4(): bigint
+  set f4(value: bigint)
+}

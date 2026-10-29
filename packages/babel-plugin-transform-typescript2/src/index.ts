@@ -612,7 +612,7 @@ export default declare((api, opts: Options) => {
 
       TSDeclareMethod(path) {
         // TODO
-        safeRemove(path);
+        // safeRemove(path);
       },
 
       BlockStatement: {
@@ -671,9 +671,10 @@ export default declare((api, opts: Options) => {
 
       ClassDeclaration(path) {
         const { node } = path;
-        if (node.declare) {
-          safeRemove(path);
-        }
+        node.declare = true;
+      },
+      ClassProperty(path) {
+        path.node.value = null;
       },
 
       Class(path) {
@@ -715,7 +716,8 @@ export default declare((api, opts: Options) => {
         // if (node.typeParameters) node.typeParameters = null;
         // if (node.returnType) node.returnType = null;
         if (node.body) node.body = null;
-        // TODO unreached
+        // throw 7
+        // TODO not unreached
 
         // TODO review
         // const params = node.params;
