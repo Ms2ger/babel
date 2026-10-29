@@ -1,3 +1,24 @@
+import { createCatName, type Cat, type Dog } from "./animal.js";
+import type { Component as
+  X } from "a";
+import type { "*" as Y } from "a";
+import type * as Z from "a";
+import type foox from "a";
+import A, * as B from "c";
+import C, { X as D } from "c";
+export type Cat2 = Cat;
+export type Dog2 = Dog;
+export type Component = X;
+export type Component2 = Y;
+export type Component3 = typeof Z;
+export type Component4 = typeof foox;
+
+Array.from([]);
+{ let x = 7; }
+
+{ var baz = function() : string { return "" } }
+export { baz };
+
 export function foo() : string {
   return "8";
 }
@@ -10,11 +31,11 @@ export {quux1};
 {var quux2 = function() : void { return }}
 export {quux2};
 
-function quux3() : void { return }
-function quux4() : void { quux3(); return }
-export {quux4};
+function quux3a() : void { return }
+function quux3b() : void { quux3a(); return }
+export {quux3b};
 
-var quux6a = function() : void { return }, quux6b = function() : void { return };
-export {quux6a};
+var quux4a = function() : void { return }, quux4b = function() : void { return };
+export {quux4a};
 
 export default function() : void{}

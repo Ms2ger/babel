@@ -323,23 +323,40 @@ export default declare((api, opts: Options) => {
       },
 
       ImportDeclaration(path, state) {
-        path.skip();
 
-        let node;
+        // let node;
         if (path.node.importKind === "type") {
-          node = path.node;
+          // node = path.node;
         } else {
-          // console.log('---ImportDeclaration---', path.node.specifiers)
+          console.log('---ImportDeclaration---', generate(path.node).code)
+          console.log('---ImportDeclaration---', path.node.specifiers)
           const specifiers = path.node.specifiers.filter(sp => {
-            // console.log(`---ImportDeclaration--- * {!isImportSpecifier(sp)} || {sp.importKind == "type"}`)
-            return !isImportSpecifier(sp) || sp.importKind == "type" // how about "typeof"?
+            let result = (() => {
+              if (isImportDefaultSpecifier(sp)) {
+                // TODO test more deeply
+                return isReachableFromExport(sp.local.name, path.scope);
+              }
+              if (isImportNamespaceSpecifier(sp)) {
+                // TODO test more deeply
+                return isReachableFromExport(sp.local.name, path.scope);
+              }
+              if (isImportSpecifier(sp)) {
+                return sp.importKind == "type" // how about "typeof"?
+              }
+              throw new Error(`Unexpected specifier ${sp}`);
+            })();
+            console.log('---ImportDeclaration---', result);
+            return result;
           });
-          if (!specifiers) {
+          if (!specifiers.length) {
+            path.remove();
             return;
           }
-          node = t.importDeclaration(specifiers, path.node.source, path.node.attributes);
+          let node = t.importDeclaration(specifiers, path.node.source, path.node.attributes);
+          path.replaceWith(node);
+          path.skip();
         }
-        dts2("ImportDeclaration", node);
+        // dts2("ImportDeclaration", node);
         // dts("ImportDeclaration", `import `);
         // dts("ImportDeclaration", "type ");
         // dts("ImportDeclaration", `{ `);
@@ -543,10 +560,10 @@ export default declare((api, opts: Options) => {
           if (!node.returnType) {
             throw new Error(`Must declare the return type of function ${node.id?.name ?? ""}`);
           }
-          // FIXME
           let newNode = t.tsDeclareFunction(
             t.cloneNode(node.id),
             t.cloneNode(node.typeParameters),
+              // XXX What's the difference between TSTypeParameterDeclaration and TypeParameterDeclaration?
             node.params,
             t.cloneNode(node.returnType));
           if (!isDefaultExport) {
@@ -598,11 +615,22 @@ export default declare((api, opts: Options) => {
         safeRemove(path);
       },
 
+      BlockStatement: {
+        exit(path) {
+          console.log("BlockStatement", path.node.body)
+          if (path.node.body.length) {
+            path.replaceWithMultiple(path.node.body);
+          } else {
+            path.remove();
+          }
+        }
+      },
+
       VariableDeclaration(path) {
         if (seen.has(path.node)) {
           return;
         }
-        console.log("VariableDeclaration: before=", path.node.declarations)
+        // console.log("VariableDeclaration: before=", path.node.declarations)
         const vars = path.node.declarations.filter(decl => {
           return t.isIdentifier(decl.id) && isReachableFromExport(decl.id.name, path.scope)
         }).map(decl => {
@@ -620,9 +648,9 @@ export default declare((api, opts: Options) => {
 
           return declarator;
         });
-        console.log("VariableDeclaration: after=", vars)
-        if (!vars) {
-          path.skip();
+        // console.log("VariableDeclaration: after=", vars)
+        if (!vars.length) {
+          path.remove();
           return;
         }
         let decl = t.variableDeclaration(path.node.kind, vars);
@@ -778,7 +806,12 @@ export default declare((api, opts: Options) => {
       ) {
         path.replaceWith(path.node.expression);
       },
+      ExpressionStatement(path) {
+        path.remove();
+      },
 
+
+      // XXX
       CallExpression(path) {
         path.node.typeArguments = null;
       },
