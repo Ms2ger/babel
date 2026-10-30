@@ -240,6 +240,24 @@ export default declare((api, opts: Options) => {
 
     return false;
   }
+  function isExported(path: NodePath) {
+    let parent: NodePath = path;
+    let isExport = false, isDefaultExport = false;
+    while ((parent = parent.parentPath)) {
+      if (isExportDefaultDeclaration(parent.node)) {
+        isDefaultExport = true;
+        break;
+      }
+      if (isExportDeclaration(parent.node)) {
+        isExport = true;
+        break;
+      }
+    }
+    console.log(`isExport=${isExport}`)
+    return [isExport, isDefaultExport];
+  }
+
+
   const seen = new WeakSet();
   return {
     name: "transform-typescript2",
@@ -308,7 +326,7 @@ export default declare((api, opts: Options) => {
 
         },
         exit(path) {
-          console.log(output);
+          // console.log(output);
           // path.node.body = output.filter(x => typeof x === "object");
           // if (
           //   path.node.sourceType === "module" &&
@@ -537,18 +555,7 @@ export default declare((api, opts: Options) => {
         enter(path) {
           let node = path.node;
           console.log(`---FunctionDeclaration ${path.node.id?.name}`)
-          let parent: NodePath = path;
-          let isExport = false, isDefaultExport = false;
-          while ((parent = parent.parentPath)) {
-            if (isExportDefaultDeclaration(parent.node)) {
-              isDefaultExport = true;
-              break;
-            }
-            if (isExportDeclaration(parent.node)) {
-              isExport = true;
-              break;
-            }
-          }
+          let [isExport, isDefaultExport] = isExported(path);
           console.log(`isExport=${isExport}`)
           if (!isExport && !isDefaultExport && !isReachableFromExport(path.node.id?.name, path.scope)) {
             console.log("    -- skipping")
@@ -630,9 +637,13 @@ export default declare((api, opts: Options) => {
         if (seen.has(path.node)) {
           return;
         }
-        // console.log("VariableDeclaration: before=", path.node.declarations)
+        console.log("VariableDeclaration: before=", path.node.declarations)
         const vars = path.node.declarations.filter(decl => {
-          return t.isIdentifier(decl.id) && isReachableFromExport(decl.id.name, path.scope)
+          if (!isIdentifier(decl.id)) {
+            return false;
+          }
+          let [isExport, isDefaultExport] = isExported(path);
+          return isExport || isDefaultExport || isReachableFromExport(decl.id.name, path.scope);
         }).map(decl => {
           const declarator = t.cloneNode(decl);
           if (isIdentifier(declarator.id) &&
@@ -648,8 +659,9 @@ export default declare((api, opts: Options) => {
 
           return declarator;
         });
-        // console.log("VariableDeclaration: after=", vars)
+        console.log("VariableDeclaration: after=", vars)
         if (!vars.length) {
+          console.log("VariableDeclaration: removing decl")
           path.remove();
           return;
         }
@@ -731,15 +743,10 @@ export default declare((api, opts: Options) => {
       },
 
       TSInterfaceDeclaration(path) {
-        path.remove();
+        // path.remove();
       },
 
       TSEnumDeclaration(path) {
-        if (optimizeConstEnums && path.node.const) {
-          transpileConstEnum(path as NodePathConstEnum, t);
-        } else {
-          transpileEnum(path, t);
-        }
       },
 
       TSImportEqualsDeclaration(

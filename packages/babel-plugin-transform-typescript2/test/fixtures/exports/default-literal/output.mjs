@@ -22,6 +22,8 @@ export { quux3b };
 declare var quux4a: () => void;
 export { quux4a };
 export default function (): void;
+export type cat = number;
+export declare var x1: number;
 export declare class C1 {
   f1: string;
   f2(): void;
@@ -35,4 +37,16 @@ export declare class C2 {
   f2(): void
   get f4(): bigint
   set f4(value: bigint)
+}
+export interface I1 {
+  f1: string;
+  f2: {
+    f3: bigint;
+  };
+}
+export enum E1 {
+  A = 0,
+  B = 1,
+  C = 2,
+  D = 12
 }

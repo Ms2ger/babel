@@ -59,3 +59,9 @@ var quux4a = function() : void { return }, quux4b = function() : void { return }
 export {quux4a};
 
 export default function() : void{}
+export interface I1 {
+  f1: string;
+  f2: {
+    f3: bigint;
+  };
+}

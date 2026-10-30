@@ -40,6 +40,12 @@ export {quux4a};
 
 export default function() : void{}
 
+export type cat = number;
+export declare var x1: number;
+declare var x2: number;
+var x3: number = 3;
+export var [y1, y2]: number[] = [3, 4];
+
 export declare class C1 {
   f1: string;
   f2(): void;
@@ -55,4 +61,16 @@ export class C2 {
   get f4(): bigint { return 0n };
   set f4(value: bigint) {};
 }
+export interface I1 {
+  f1: string;
+  f2: {
+    f3: bigint;
+  };
+}
 
+export enum E1 {
+  A = 0,
+  B = 1,
+  C = 2,
+  D = 12
+}
