@@ -23,7 +23,7 @@ import transpileNamespace, { getFirstIdentifier } from "./namespace.ts";
 import {
   isExportDeclaration, isExportDefaultDeclaration, isFunctionDeclaration, isFunctionExpression,
   isIdentifier, isImportDefaultSpecifier, isImportNamespaceSpecifier, isImportSpecifier,
-  isStringLiteral, tsDeclareFunction,
+  isStringLiteral, isTypeAnnotation, isTypeParameterDeclaration, tsDeclareFunction,
   TSTypeAnnotation,
   TSTypeParameterDeclaration
 } from "@babel/types";
@@ -624,8 +624,29 @@ export default declare((api, opts: Options) => {
       },
 
       TSDeclareMethod(path) {
-        // TODO
-        // safeRemove(path);
+        // if (seen.has(path.node)) {
+        //   return;
+        // }
+        // let {node} = path;
+        // let newNode = t.tsDeclareMethod(
+        //   t.cloneNode(node.key),
+        //   t.cloneNode(node.typeParameters),
+        //   node.params,
+        //   node.accessibility === "private" ? null : t.cloneNode(node.returnType)
+        // );
+        // console.log("~~~TSDeclareMethod: ", node.key, node.accessibility === "private", newNode.returnType)
+        // newNode.kind = node.kind;
+        // newNode.static = node.static;
+
+        // // XXX What's the difference between these?
+        // newNode.access = node.access;
+        // newNode.accessibility = node.accessibility;
+
+        // path.replaceWith(newNode);
+        // seen.add(newNode);
+        if (path.node.accessibility === "private") {
+          path.node.returnType = null;
+        }
       },
 
       BlockStatement: {
@@ -693,26 +714,36 @@ export default declare((api, opts: Options) => {
       },
       ClassProperty(path) {
         path.node.value = null;
+        if (path.node.accessibility === "private") {
+          path.node.typeAnnotation = null;
+        }
       },
       ClassMethod(path) {
         console.log(generate(path.node).code)
         console.log(path.node)
-        // throw 9
         let node = path.node;
         if (node.kind === "method" && !node.returnType) {
           throw new Error(`Must declare the return type of method`);
         }
-        let typeParameters: (TSTypeParameterDeclaration | null | undefined) = t.cloneNode(node.typeParameters);
-        let returnType: TSTypeAnnotation | null | undefined = t.cloneNode(node.returnType);
+        if (isTypeParameterDeclaration(node.typeParameters)) {
+          throw new Error("Found TypeParameterDeclaration");
+        }
+        if (isTypeAnnotation(node.returnType)) {
+          throw new Error("Found TypeAnnotation");
+        }
         let newNode = t.tsDeclareMethod(
           t.cloneNode(node.key),
-          typeParameters,
-            // XXX What's the difference between TSTypeParameterDeclaration and TypeParameterDeclaration?
+          t.cloneNode(node.typeParameters),
           node.params,
-          returnType
+          t.cloneNode(node.returnType)
         );
+        console.log("~~~ClassMethod: ", node.key, node.accessibility === "private", newNode.returnType)
         newNode.kind = node.kind;
         newNode.static = node.static;
+
+        // XXX What's the difference between these?
+        newNode.access = node.access;
+        newNode.accessibility = node.accessibility;
 
         // if (!isDefaultExport) {
         //   newNode.declare = true;

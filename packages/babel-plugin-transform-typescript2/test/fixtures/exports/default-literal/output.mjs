@@ -32,6 +32,10 @@ export declare class C1 {
   get f4(): bigint;
   set f4(value: bigint);
   static f5(): number;
+  private f6;
+  private f7();
+  protected f8: string;
+  protected f9(): string;
 }
 export declare class C2 {
   f1: string;
@@ -39,6 +43,10 @@ export declare class C2 {
   get f4(): bigint;
   set f4(value: bigint);
   static f5(): number;
+  private f6;
+  private f7();
+  protected f8: string;
+  protected f9(): string;
 }
 export interface I1 {
   f1: string;
