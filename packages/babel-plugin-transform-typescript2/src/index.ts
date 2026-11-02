@@ -227,20 +227,30 @@ export default declare((api, opts: Options) => {
     output.push(s);
   };
   function isReachableFromExport(id: string | undefined, scope) : boolean {
+    console.log(`isReachableFromExport(${id})`)
     if (!id) {
-      // TODO check if part of default export
-      console.log()
       return false;
     }
     let binding = scope.getBinding(id);
     if (!binding) {
-      throw new Error(`Unexpected missing binding for id {id}`);
+      throw new Error(`Unexpected missing binding for id ${id}`);
     }
-    // console.log("binding:", binding?.referencePaths)
+    // console.log(`binding: referencePaths for ${id} are`, binding?.referencePaths)
     for (const ref of binding.referencePaths) {
       if (ref.container.type === "ExportSpecifier") {
         return true;
       }
+      if (ref.container.type === "TSTypeReference") {
+        // FIXME bad perf likely
+        console.log(ref)
+        let parent = ref.parentPath.parentPath;
+        console.log("parent.type = ", parent.node.type)
+        return isReachableFromExport(parent.node.id.name, parent.scope)
+
+        // FIXME ref.container.typeName.name is the
+      }
+      console.log("ref.container.type = ",ref.container.type)
+
 
     }
 
@@ -366,6 +376,7 @@ export default declare((api, opts: Options) => {
               }
               if (isImportSpecifier(sp)) {
                 return sp.importKind == "type" // how about "typeof"?
+                  || isReachableFromExport(sp.local.name, path.scope);
               }
               throw new Error(`Unexpected specifier ${sp}`);
             })();
