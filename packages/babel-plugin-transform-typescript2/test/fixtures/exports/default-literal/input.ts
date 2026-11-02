@@ -53,6 +53,7 @@ export declare class C1 {
   f3(a: number): number;
   get f4(): bigint;
   set f4(value: bigint);
+  static f5() : number;
 }
 
 export class C2 {
@@ -60,6 +61,7 @@ export class C2 {
   f2(): void { return };
   get f4(): bigint { return 0n };
   set f4(value: bigint) {};
+  static f5() : number { return 7 };
 }
 export interface I1 {
   f1: string;

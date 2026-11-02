@@ -20,7 +20,13 @@ import {
   registerGlobalType,
 } from "./global-types.ts";
 import transpileNamespace, { getFirstIdentifier } from "./namespace.ts";
-import { isExportDeclaration, isExportDefaultDeclaration, isFunctionDeclaration, isFunctionExpression, isIdentifier, isImportDefaultSpecifier, isImportNamespaceSpecifier, isImportSpecifier, isStringLiteral } from "@babel/types";
+import {
+  isExportDeclaration, isExportDefaultDeclaration, isFunctionDeclaration, isFunctionExpression,
+  isIdentifier, isImportDefaultSpecifier, isImportNamespaceSpecifier, isImportSpecifier,
+  isStringLiteral, tsDeclareFunction,
+  TSTypeAnnotation,
+  TSTypeParameterDeclaration
+} from "@babel/types";
 // import { ImportDeclaration } from "../../babel-generator/src/generators/modules.ts";
 
 function isInType(path: NodePath) {
@@ -688,47 +694,77 @@ export default declare((api, opts: Options) => {
       ClassProperty(path) {
         path.node.value = null;
       },
+      ClassMethod(path) {
+        console.log(generate(path.node).code)
+        console.log(path.node)
+        // throw 9
+        let node = path.node;
+        if (node.kind === "method" && !node.returnType) {
+          throw new Error(`Must declare the return type of method`);
+        }
+        let typeParameters: (TSTypeParameterDeclaration | null | undefined) = t.cloneNode(node.typeParameters);
+        let returnType: TSTypeAnnotation | null | undefined = t.cloneNode(node.returnType);
+        let newNode = t.tsDeclareMethod(
+          t.cloneNode(node.key),
+          typeParameters,
+            // XXX What's the difference between TSTypeParameterDeclaration and TypeParameterDeclaration?
+          node.params,
+          returnType
+        );
+        newNode.kind = node.kind;
+        newNode.static = node.static;
+
+        // if (!isDefaultExport) {
+        //   newNode.declare = true;
+        // }
+        // dts2("FunctionDeclaration", newNode);
+        path.replaceWith(newNode);
+      // throw 8
+
+      },
 
       Class(path) {
         const { node }: { node: typeof path.node & ExtraNodeProps } = path;
 
-        if (node.typeParameters) node.typeParameters = null;
+        // if (node.typeParameters) node.typeParameters = null;
 
-        if (node.superTypeArguments) node.superTypeArguments = null;
+        // if (node.superTypeArguments) node.superTypeArguments = null;
 
-        if (node.implements) node.implements = null;
-        if (node.abstract) node.abstract = null;
+        // if (node.implements) node.implements = null;
+        // if (node.abstract) node.abstract = null;
 
         // Similar to the logic in `transform-flow-strip-types`, we need to
         // handle `TSParameterProperty` and `ClassProperty` here because the
         // class transform would transform the class, causing more specific
         // visitors to not run.
-        path.get("body.body").forEach(child => {
-          if (child.isClassMethod() || child.isClassPrivateMethod()) {
-            if (child.node.kind === "constructor") {
-              classMemberVisitors.constructor(
-                // @ts-expect-error A constructor must not be a private method
-                child,
-                path,
-              );
-            } else {
-              classMemberVisitors.method(child);
-            }
-          } else if (
-            child.isClassProperty() ||
-            child.isClassPrivateProperty() ||
-            child.isClassAccessorProperty()
-          ) {
-            classMemberVisitors.field(child);
-          }
-        });
+        // path.get("body.body").forEach(child => {
+        //   if (child.isClassMethod() || child.isClassPrivateMethod()) {
+        //     if (child.node.kind === "constructor") {
+        //       classMemberVisitors.constructor(
+        //         // @ts-expect-error A constructor must not be a private method
+        //         child,
+        //         path,
+        //       );
+        //     } else {
+        //       classMemberVisitors.method(child);
+        //     }
+        //   } else if (
+        //     child.isClassProperty() ||
+        //     child.isClassPrivateProperty() ||
+        //     child.isClassAccessorProperty()
+        //   ) {
+        //     classMemberVisitors.field(child);
+        //   }
+        // });
       },
       Function(path) {
         const { node } = path;
         // if (node.typeParameters) node.typeParameters = null;
         // if (node.returnType) node.returnType = null;
+        console.log(generate(path.node).code)
+        throw 7
         if (node.body) node.body = null;
-        // throw 7
+        let newNode = tsDeclareFunction(null, node.typeParameters, node.params, node.returnType)
         // TODO not unreached
 
         // TODO review

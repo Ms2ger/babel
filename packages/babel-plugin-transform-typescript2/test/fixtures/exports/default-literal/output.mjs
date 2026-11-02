@@ -31,12 +31,14 @@ export declare class C1 {
   f3(a: number): number;
   get f4(): bigint;
   set f4(value: bigint);
+  static f5(): number;
 }
 export declare class C2 {
   f1: string;
-  f2(): void
-  get f4(): bigint
-  set f4(value: bigint)
+  f2(): void;
+  get f4(): bigint;
+  set f4(value: bigint);
+  static f5(): number;
 }
 export interface I1 {
   f1: string;
