@@ -6,12 +6,16 @@ import type * as Z from "a";
 import type foox from "a";
 import A, * as B from "c";
 import C, { X as D } from "c";
+import { E } from "x";
 export type Cat2 = Cat;
 export type Dog2 = Dog;
 export type Component = X;
 export type Component2 = Y;
 export type Component3 = typeof Z;
 export type Component4 = typeof foox;
+type F = E;
+type G = F;
+export type H = G;
 
 Array.from([]);
 { let x = 7; }
