@@ -233,7 +233,9 @@ export default declare((api, opts: Options) => {
     }
     let binding = scope.getBinding(id);
     if (!binding) {
-      throw new Error(`Unexpected missing binding for id ${id}`);
+      // throw new Error(`Unexpected missing binding for id ${id}`);
+      console.error(`Unexpected missing binding for id ${id}`);
+      return true;
     }
     // console.log(`binding: referencePaths for ${id} are`, binding?.referencePaths)
     for (const ref of binding.referencePaths) {
@@ -242,7 +244,7 @@ export default declare((api, opts: Options) => {
       }
       if (ref.container.type === "TSTypeReference") {
         // FIXME implement
-        return false;
+        continue;
         // FIXME bad perf likely
         // console.log(ref)
         // let parent = ref.parentPath.parentPath;
@@ -445,97 +447,7 @@ export default declare((api, opts: Options) => {
       //     dts("ImportSpecifier", ` as ${local.name}`);
       //   }
       // },
-      ExportNamedDeclaration: {
-        enter(path, state) {
-          // let node = t.tsDeclareFunction(path.node., typeParameters, params, returnType);
-          // dts("ExportNamedDeclaration", generate(path.node).code);
-          // path.skip();
-          // return;
-          // console.log(`ExportNamedDeclaration:`, path.node)
-          // console.log("binding:", path.scope.getBinding(path.node.specifiers[0].local.name)?.referencePaths)
-          dts2("ExportNamedDeclaration", path.node);
-          // dts("ExportNamedDeclaration", "export ");
-          // if (path.node.exportKind !== "type") {
-          //   dts("ExportNamedDeclaration", "declare ");
-          // }
-          // // dts("ExportNamedDeclaration", generate(path.node).code + "\n");
-          // path.skip();
-
-        },
-        exit() {
-          // FIXME TSDeclareFunction adds a semicolon
-          // dts("ExportNamedDeclaration", `;\n`);
-        },
-        // console.log(path.node);
-
-        // if (!NEEDS_EXPLICIT_ESM.has(state.file.ast.program)) {
-        //   NEEDS_EXPLICIT_ESM.set(state.file.ast.program, true);
-        // }
-
-
-        // if (t.isTSImportEqualsDeclaration(path.node.declaration)) {
-        //   return;
-        // }
-
-        // // remove export declaration that is filled with type-only specifiers
-        // //   export { type A1, type A2 } from "a";
-        // if (
-        //   path.node.source &&
-        //   path.node.specifiers.length > 0 &&
-        //   path.node.specifiers.every(
-        //     specifier =>
-        //       specifier.type === "ExportSpecifier" &&
-        //       specifier.exportKind === "type",
-        //   )
-        // ) {
-        //   path.remove();
-        //   return;
-        // }
-
-        // // remove export declaration if it's exporting only types
-        // // This logic is needed when exportKind is "value", because
-        // // currently the "type" keyword is optional.
-        // // TODO:
-        // // Also, currently @babel/parser sets exportKind to "value" for
-        // //   export interface A {}
-        // //   etc.
-        // if (
-        //   !path.node.source &&
-        //   path.node.specifiers.length > 0 &&
-        //   path.node.specifiers.every(
-        //     specifier =>
-        //       t.isExportSpecifier(specifier) &&
-        //       isGlobalType(path, (specifier.local as t.Identifier).name),
-        //   )
-        // ) {
-        //   path.remove();
-        //   return;
-        // }
-
-        // Convert `export namespace X {}` into `export let X; namespace X {}`,
-        // so that when visiting TSModuleDeclaration we do not have to possibly
-        // replace its parent path.
-        // if (t.isTSModuleDeclaration(path.node.declaration)) {
-        //   const namespace = path.node.declaration;
-        //   if (!t.isStringLiteral(namespace.id)) {
-        //     const id = getFirstIdentifier(namespace.id);
-        //     if (path.scope.hasOwnBinding(id.name)) {
-        //       path.replaceWith(namespace);
-        //     } else {
-        //       const [newExport] = path.replaceWithMultiple([
-        //         t.exportNamedDeclaration(
-        //           t.variableDeclaration("let", [
-        //             t.variableDeclarator(t.cloneNode(id)),
-        //           ]),
-        //         ),
-        //         namespace,
-        //       ]);
-        //       path.scope.registerDeclaration(newExport);
-        //     }
-        //   }
-        // }
-
-        // NEEDS_EXPLICIT_ESM.set(state.file.ast.program, false);
+      ExportNamedDeclaration(path, state) {
       },
 
       ExportAllDeclaration(path) {
@@ -561,8 +473,68 @@ export default declare((api, opts: Options) => {
         // →
         // declare const _default: "foo";
         // export default _default;
-        enter({node}) {
-          dts2("ExportDefaultDeclaration", node);
+        enter(path) {
+          function addExplicitVariable(declaration) {
+            let id = t.identifier("_default");
+            id.typeAnnotation = t.tsTypeAnnotation(
+              t.tsLiteralType(declaration)
+            );
+            let constDecl: t.VariableDeclarator = t.variableDeclarator(
+              id,
+              declaration
+            );
+            let newConst = t.variableDeclaration("const", [
+              constDecl
+            ]);
+            let newExport = t.exportDefaultDeclaration(t.identifier("_default"));
+            path.replaceWithMultiple([
+              newConst,
+              newExport,
+            ]);
+
+          }
+          let {node} = path;
+          console.log("ExportDefaultDeclaration", node)
+          switch (node.declaration.type) {
+            case "TemplateLiteral": {
+              if (node.declaration.expressions.length) {
+                throw new Error(`Template literal with expressions not supported in default export`)
+              }
+              // TODO: any edge cases?
+              addExplicitVariable(t.stringLiteral(node.declaration.quasis[0].value.raw));
+              break;
+            }
+            case "UnaryExpression": {
+              const {operator: op, argument: arg} = node.declaration;
+              // These seem to be the only cases ts supports.
+              if (arg.type !== "NumericLiteral" && arg.type !== "BigIntLiteral") {
+                throw new Error(`Unary operator ${op} not supported in default export with argument ${arg}`);
+              }
+              if (op === "+") {
+                addExplicitVariable(node.declaration.argument);
+              } else if (op === "-") {
+                addExplicitVariable(node.declaration);
+              } else {
+                throw new Error(`Unary operator ${op} not supported in default export`);
+              }
+              break;
+            }
+            case "StringLiteral":
+            case "NumericLiteral":
+            case "BigIntLiteral":
+            case "BooleanLiteral": {
+              addExplicitVariable(node.declaration);
+              break;
+            }
+            case "ObjectExpression": {
+              // FIXME - need to infer the type unless we're willing to be stricter than tsc.
+              break;
+            }
+            default: {
+              break;
+            }
+
+          }
 
           // dts("ExportDefaultDeclaration", "export default ");
         },
