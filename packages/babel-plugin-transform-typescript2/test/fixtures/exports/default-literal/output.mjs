@@ -3,16 +3,12 @@ import type { Component as X } from "a";
 import type { "*" as Y } from "a";
 import type * as Z from "a";
 import type foox from "a";
-import { E } from "x";
 export type Cat2 = Cat;
 export type Dog2 = Dog;
 export type Component = X;
 export type Component2 = Y;
 export type Component3 = typeof Z;
 export type Component4 = typeof foox;
-type F = E;
-type G = F;
-export type H = G;
 declare var baz: () => string;
 export { baz };
 export declare function foo(): string;
@@ -63,4 +59,9 @@ export enum E1 {
   B = 1,
   C = 2,
   D = 12
+}
+export type E2 = keyof typeof E1;
+export const enum E3 {
+  A = 0,
+  B = 1
 }

@@ -227,7 +227,7 @@ export default declare((api, opts: Options) => {
     output.push(s);
   };
   function isReachableFromExport(id: string | undefined, scope) : boolean {
-    console.log(`isReachableFromExport(${id})`)
+    console.log(`isReachableFromExport(${id})`, scope)
     if (!id) {
       return false;
     }
@@ -241,11 +241,14 @@ export default declare((api, opts: Options) => {
         return true;
       }
       if (ref.container.type === "TSTypeReference") {
+        // FIXME implement
+        return false;
         // FIXME bad perf likely
-        console.log(ref)
-        let parent = ref.parentPath.parentPath;
-        console.log("parent.type = ", parent.node.type)
-        return isReachableFromExport(parent.node.id.name, parent.scope)
+        // console.log(ref)
+        // let parent = ref.parentPath.parentPath;
+        // console.log("parent.type = ", parent.node.type)
+        // console.log(`parent.scope === scope: ${parent.scope === scope}`)
+        // return isReachableFromExport(parent.node.id.name, parent.scope)
 
         // FIXME ref.container.typeName.name is the
       }
