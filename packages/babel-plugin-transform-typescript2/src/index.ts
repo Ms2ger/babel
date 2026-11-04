@@ -317,7 +317,7 @@ export default declare((api, opts: Options) => {
           }
           let signature = tsPropertySignature(
             t.cloneNode(prop.key),
-            t.tsTypeAnnotation(inferType(prop.value))
+            t.tsTypeAnnotation(inferType(prop.value, widen || true))
           );
           signature.computed = prop.computed;
           return signature;
@@ -742,13 +742,23 @@ export default declare((api, opts: Options) => {
                 declarator.init.params,
                 declarator.init.returnType,
               ))
+              declarator.init = null;
             } else {
-              declarator.id.typeAnnotation = t.tsTypeAnnotation((inferType(declarator.init, path.node.kind !== "const")));
+              let inferred = inferType(declarator.init, path.node.kind !== "const");
+              if (path.node.kind === "const" && isTSLiteralType(inferred)) {
+
+              } else {
+
+                declarator.id.typeAnnotation = t.tsTypeAnnotation(inferred);
+
+                declarator.init = null;
+              }
             }
 
+          } else {
+            declarator.init = null;
           }
           if (path.node.kind !== "const" || true) { // Sometimes
-            declarator.init = null;
           }
           return declarator;
         });
