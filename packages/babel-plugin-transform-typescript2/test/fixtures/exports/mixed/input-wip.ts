@@ -58,10 +58,24 @@ export {quux3b};
 var quux4a = function() : void { return }, quux4b = function() : void { return };
 export {quux4a};
 
-export default function() : void{}
+// export default function() : void{}
 export interface I1 {
   f1: string;
   f2: {
     f3: bigint;
   };
 }
+
+export const x = 7;
+export let y = 7;
+export const a = {y:7, z: {a:""}};
+export let b = {y:7, z: {a:""}};
+export default {y:7, z: {a:""}};
+// export const x = 7 as const;
+// export let y = 7 as const;
+// export const a = {y:7, z: {a:""}} as const;
+// export let b = {y:7, z: {a:""}} as const;
+// export default {y:7, z: {a:""}} as const;
+// export let y = 7 as 7;
+// export let y = 7 as 77;
+// export const a = {y:7, z: {a:""}} as {};

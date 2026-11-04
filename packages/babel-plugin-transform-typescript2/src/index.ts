@@ -493,47 +493,52 @@ export default declare((api, opts: Options) => {
             ]);
 
           }
-          let {node} = path;
-          console.log("ExportDefaultDeclaration", node)
-          switch (node.declaration.type) {
-            case "TemplateLiteral": {
-              if (node.declaration.expressions.length) {
-                throw new Error(`Template literal with expressions not supported in default export`)
+          function inferType(declaration) {
+            switch (node.declaration.type) {
+              case "TemplateLiteral": {
+                if (node.declaration.expressions.length) {
+                  throw new Error(`Template literal with expressions not supported in default export`)
+                }
+                // TODO: any edge cases?
+                return t.stringLiteral(node.declaration.quasis[0].value.raw);
               }
-              // TODO: any edge cases?
-              addExplicitVariable(t.stringLiteral(node.declaration.quasis[0].value.raw));
-              break;
-            }
-            case "UnaryExpression": {
-              const {operator: op, argument: arg} = node.declaration;
-              // These seem to be the only cases ts supports.
-              if (arg.type !== "NumericLiteral" && arg.type !== "BigIntLiteral") {
-                throw new Error(`Unary operator ${op} not supported in default export with argument ${arg}`);
-              }
-              if (op === "+") {
-                addExplicitVariable(node.declaration.argument);
-              } else if (op === "-") {
-                addExplicitVariable(node.declaration);
-              } else {
+              case "UnaryExpression": {
+                const {operator: op, argument: arg} = node.declaration;
+                // These seem to be the only cases ts supports.
+                if (arg.type !== "NumericLiteral" && arg.type !== "BigIntLiteral") {
+                  throw new Error(`Unary operator ${op} not supported in default export with argument ${arg}`);
+                }
+                if (op === "+") {
+                  return node.declaration.argument;
+                }
+                if (op === "-") {
+                  return node.declaration;
+                }
                 throw new Error(`Unary operator ${op} not supported in default export`);
               }
-              break;
-            }
-            case "StringLiteral":
-            case "NumericLiteral":
-            case "BigIntLiteral":
-            case "BooleanLiteral": {
-              addExplicitVariable(node.declaration);
-              break;
-            }
-            case "ObjectExpression": {
-              // FIXME - need to infer the type unless we're willing to be stricter than tsc.
-              break;
-            }
-            default: {
-              break;
+              case "StringLiteral":
+              case "NumericLiteral":
+              case "BigIntLiteral":
+              case "BooleanLiteral": {
+                return node.declaration;
+              }
+              case "ObjectExpression": {
+                // FIXME - need to infer the type unless we're willing to be stricter than tsc.
+                break;
+              }
+              default: {
+                break;
+              }
             }
 
+          }
+          let {node} = path;
+          console.log("ExportDefaultDeclaration", node)
+          // TODO: apply to normal `export const`. `export let` gets similar but no literal types
+          // TODO: support `as foo`, `as const` annotations
+          let inferred = inferType(node.declaration);
+          if (inferred) {
+            addExplicitVariable(inferred);
           }
 
           // dts("ExportDefaultDeclaration", "export default ");
