@@ -23,10 +23,20 @@ import transpileNamespace, { getFirstIdentifier } from "./namespace.ts";
 import {
   isExportDeclaration, isExportDefaultDeclaration, isFunctionDeclaration, isFunctionExpression,
   isIdentifier, isImportDefaultSpecifier, isImportNamespaceSpecifier, isImportSpecifier,
-  isStringLiteral, isTypeAnnotation, isTypeParameterDeclaration, tsDeclareFunction,
+  isPrivateName,
+  isStringLiteral, isTSLiteralType, isTypeAnnotation, isTypeParameterDeclaration, stringTypeAnnotation, tsBigIntKeyword, tsDeclareFunction,
+  TSLiteralType,
+  tsLiteralType,
+  tsNumberKeyword,
+  tsPropertySignature,
+  tsStringKeyword,
+  TSType,
   TSTypeAnnotation,
-  TSTypeParameterDeclaration
+  tsTypeLiteral,
+  TSTypeParameterDeclaration,
+  TypeParameterDeclaration
 } from "@babel/types";
+// import { Identifier } from "../../babel-generator/src/node/parentheses.ts";
 // import { ImportDeclaration } from "../../babel-generator/src/generators/modules.ts";
 
 function isInType(path: NodePath) {
@@ -226,6 +236,101 @@ export default declare((api, opts: Options) => {
     console.log(`***${pattern}*** ${generate(s).code + "\n"}`);
     output.push(s);
   };
+  function translateTypeParameters(arg: TSTypeParameterDeclaration | TypeParameterDeclaration | null | undefined): TSTypeParameterDeclaration | null | undefined {
+    if (isTypeParameterDeclaration(arg)) {
+      // TODO
+      throw new Error(`Unexpected Flow TypeParameterDeclaration ${arg}`);
+    }
+    return arg;
+  }
+  function inferType(declaration, widen: boolean = false): TSType | undefined {
+    if (isFunctionExpression(declaration)) {
+      if (!declaration.returnType) {
+        throw new Error(`Explicit return type is required`)
+      }
+      return t.tsFunctionType(
+        translateTypeParameters(declaration.typeParameters),
+        declaration.params,
+        declaration.returnType,
+      )
+    }
+
+    switch (declaration.type) {
+      case "TemplateLiteral": {
+        if (declaration.expressions.length) {
+          throw new Error(`Template literal with expressions not supported`)
+        }
+        // TODO: any edge cases?
+        if (widen) {
+          return tsStringKeyword();
+        }
+        return tsLiteralType(t.stringLiteral(declaration.quasis[0].value.raw));
+      }
+      case "UnaryExpression": {
+        const {operator: op, argument: arg} = declaration;
+        // These seem to be the only cases ts supports.
+        if (op !== "+" && op !== "-") {
+          throw new Error(`Unary operator ${op} not supported`);
+        }
+        if (arg.type !== "NumericLiteral" && arg.type !== "BigIntLiteral") {
+          throw new Error(`Unary operator ${op} not supported with argument ${arg}`);
+        }
+        if (widen) {
+          return arg.type === "NumericLiteral" ? tsNumberKeyword() : tsBigIntKeyword();
+        }
+        if (op === "+") {
+          return tsLiteralType(t.cloneNode(declaration.argument));
+        }
+        if (op === "-") {
+          return tsLiteralType(t.cloneNode(declaration));
+        }
+      }
+      case "StringLiteral": {
+        if (widen) {
+          return tsStringKeyword();
+        }
+        return tsLiteralType(t.cloneNode(declaration));
+      }
+      case "NumericLiteral": {
+        if (widen) {
+          return tsNumberKeyword();
+        }
+        return tsLiteralType(t.cloneNode(declaration));
+      }
+      case "BigIntLiteral": {
+        if (widen) {
+          return tsBigIntKeyword();
+        }
+        return tsLiteralType(t.cloneNode(declaration));
+      }
+      case "BooleanLiteral": {
+        if (widen) {
+          return tsBooleanKeyword();
+        }
+        return tsLiteralType(t.cloneNode(declaration));
+      }
+      case "ObjectExpression": {
+        let members = declaration.properties.map((prop: t.ObjectProperty) => {
+          // TODO factor out
+          if (isPrivateName(prop.key)) {
+            throw new Error(`Unexpected private name`);
+          }
+          let signature = tsPropertySignature(
+            t.cloneNode(prop.key),
+            t.tsTypeAnnotation(inferType(prop.value))
+          );
+          signature.computed = prop.computed;
+          return signature;
+        })
+        let literal = tsTypeLiteral(members);
+        return literal;
+      }
+      default: {
+        break;
+      }
+    }
+
+  }
   function isReachableFromExport(id: string | undefined, scope) : boolean {
     console.log(`isReachableFromExport(${id})`, scope)
     if (!id) {
@@ -474,14 +579,14 @@ export default declare((api, opts: Options) => {
         // declare const _default: "foo";
         // export default _default;
         enter(path) {
-          function addExplicitVariable(declaration) {
+          function addExplicitVariable(declaration: TSLiteralType) {
             let id = t.identifier("_default");
             id.typeAnnotation = t.tsTypeAnnotation(
-              t.tsLiteralType(declaration)
+              declaration
             );
             let constDecl: t.VariableDeclarator = t.variableDeclarator(
               id,
-              declaration
+              declaration.literal
             );
             let newConst = t.variableDeclaration("const", [
               constDecl
@@ -493,52 +598,16 @@ export default declare((api, opts: Options) => {
             ]);
 
           }
-          function inferType(declaration) {
-            switch (node.declaration.type) {
-              case "TemplateLiteral": {
-                if (node.declaration.expressions.length) {
-                  throw new Error(`Template literal with expressions not supported in default export`)
-                }
-                // TODO: any edge cases?
-                return t.stringLiteral(node.declaration.quasis[0].value.raw);
-              }
-              case "UnaryExpression": {
-                const {operator: op, argument: arg} = node.declaration;
-                // These seem to be the only cases ts supports.
-                if (arg.type !== "NumericLiteral" && arg.type !== "BigIntLiteral") {
-                  throw new Error(`Unary operator ${op} not supported in default export with argument ${arg}`);
-                }
-                if (op === "+") {
-                  return node.declaration.argument;
-                }
-                if (op === "-") {
-                  return node.declaration;
-                }
-                throw new Error(`Unary operator ${op} not supported in default export`);
-              }
-              case "StringLiteral":
-              case "NumericLiteral":
-              case "BigIntLiteral":
-              case "BooleanLiteral": {
-                return node.declaration;
-              }
-              case "ObjectExpression": {
-                // FIXME - need to infer the type unless we're willing to be stricter than tsc.
-                break;
-              }
-              default: {
-                break;
-              }
-            }
-
-          }
+          // console.log(path.getTypeAnnotation());
           let {node} = path;
           console.log("ExportDefaultDeclaration", node)
           // TODO: apply to normal `export const`. `export let` gets similar but no literal types
           // TODO: support `as foo`, `as const` annotations
-          let inferred = inferType(node.declaration);
-          if (inferred) {
-            addExplicitVariable(inferred);
+          if (!isFunctionDeclaration(node.declaration)) {
+            let inferred = inferType(node.declaration);
+            if (inferred && isTSLiteralType(inferred)) {
+              addExplicitVariable(inferred);
+            }
           }
 
           // dts("ExportDefaultDeclaration", "export default ");
@@ -566,8 +635,7 @@ export default declare((api, opts: Options) => {
           }
           let newNode = t.tsDeclareFunction(
             t.cloneNode(node.id),
-            t.cloneNode(node.typeParameters),
-              // XXX What's the difference between TSTypeParameterDeclaration and TypeParameterDeclaration?
+            t.cloneNode(translateTypeParameters(node.typeParameters)),
             node.params,
             t.cloneNode(node.returnType));
           if (!isDefaultExport) {
@@ -664,17 +732,24 @@ export default declare((api, opts: Options) => {
           return isExport || isDefaultExport || isReachableFromExport(decl.id.name, path.scope);
         }).map(decl => {
           const declarator = t.cloneNode(decl);
-          if (isIdentifier(declarator.id) &&
-              !declarator.id.typeAnnotation &&
-              isFunctionExpression(declarator.init)) {
-            declarator.id.typeAnnotation = t.tsTypeAnnotation(t.tsFunctionType(
-              declarator.init.typeParameters, // XXX
-              declarator.init.params,
-              declarator.init.returnType,
-            ))
+          if (!isIdentifier(declarator.id)) {
+            throw undefined;
           }
-          declarator.init = null;
+          if (!declarator.id.typeAnnotation) {
+            if (isFunctionExpression(declarator.init)) {
+              declarator.id.typeAnnotation = t.tsTypeAnnotation(t.tsFunctionType(
+                translateTypeParameters(declarator.init.typeParameters),
+                declarator.init.params,
+                declarator.init.returnType,
+              ))
+            } else {
+              declarator.id.typeAnnotation = t.tsTypeAnnotation((inferType(declarator.init, path.node.kind !== "const")));
+            }
 
+          }
+          if (path.node.kind !== "const" || true) { // Sometimes
+            declarator.init = null;
+          }
           return declarator;
         });
         console.log("VariableDeclaration: after=", vars)

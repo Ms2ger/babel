@@ -48,6 +48,10 @@ export declare class C2 {
   protected f8: string;
   protected f9(): string;
 }
+export class C3 {
+  #private;
+  constructor();
+}
 export interface I1 {
   f1: string;
   f2: {
@@ -65,3 +69,23 @@ export const enum E3 {
   A = 0,
   B = 1
 }
+export declare const x = 7;
+export declare let y: number;
+export declare const a: {
+  y: number;
+  z: {
+    a: string;
+  };
+};
+export declare let b: {
+  y: number;
+  z: {
+    a: string;
+  };
+};
+export declare let c: {
+  y: number;
+  z: {
+    a: string;
+  };
+};

@@ -71,6 +71,12 @@ export class C2 {
   protected f8: string;
   protected f9(): string { return ""; };
 }
+export class C3 {
+  #f: string
+  constructor() {
+      this.#f = ""
+  }
+}
 export interface I1 {
   f1: string;
   f2: {
@@ -89,3 +95,9 @@ export const enum E3 {
   A = 0,
   B = 1,
 }
+
+export const x = 7;
+export let y = 7;
+export const a = {y:7, z: {a:""}};
+export let b = {y:7, z: {a:""}};
+export let c = {y:7, z: {["a"]:""}};
