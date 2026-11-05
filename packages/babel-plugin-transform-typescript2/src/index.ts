@@ -21,11 +21,14 @@ import {
 } from "./global-types.ts";
 import transpileNamespace, { getFirstIdentifier } from "./namespace.ts";
 import {
+  classPrivateProperty,
+  isClassPrivateMethod,
+  isClassPrivateProperty,
   isExportDeclaration, isExportDefaultDeclaration, isFunctionDeclaration, isFunctionExpression,
   isIdentifier, isImportDefaultSpecifier, isImportNamespaceSpecifier, isImportSpecifier,
   isNumericLiteral,
   isPrivateName,
-  isStringLiteral, isTSLiteralType, isTypeAnnotation, isTypeParameterDeclaration, stringTypeAnnotation, tsBigIntKeyword, tsDeclareFunction,
+  isStringLiteral, isTSLiteralType, isTypeAnnotation, isTypeParameterDeclaration, privateName, stringTypeAnnotation, tsBigIntKeyword, tsDeclareFunction,
   TSLiteralType,
   tsLiteralType,
   tsNumberKeyword,
@@ -808,6 +811,15 @@ export default declare((api, opts: Options) => {
           path.node.typeAnnotation = null;
         }
       },
+      ClassPrivateProperty(path) {
+        console.log("ClassPrivateProperty", path.node)
+        if (path.node.key.id.name !== "private") {
+          throw new Error("This should have been filtered out already");
+        }
+      },
+      ClassPrivateMethod(path) {
+        throw new Error("This should have been filtered out already");
+      },
       ClassMethod(path) {
         console.log(generate(path.node).code)
         console.log(path.node)
@@ -846,6 +858,24 @@ export default declare((api, opts: Options) => {
 
       Class(path) {
         const { node }: { node: typeof path.node & ExtraNodeProps } = path;
+        // let hasPrivate = node.body.body.some(field =>
+        //   isClassPrivateProperty(field) ||
+        //   isClassPrivateMethod(field)
+
+        // );
+        let filtered = node.body.body.filter(field =>
+          !isClassPrivateProperty(field) &&
+          !isClassPrivateMethod(field)
+        );
+        let hasPrivate = node.body.body.length !== filtered.length;
+        node.body.body = filtered;
+        if (hasPrivate) {
+          node.body.body.unshift(
+            classPrivateProperty(
+              privateName(t.identifier("private"))
+            )
+          )
+        }
 
         // if (node.typeParameters) node.typeParameters = null;
 

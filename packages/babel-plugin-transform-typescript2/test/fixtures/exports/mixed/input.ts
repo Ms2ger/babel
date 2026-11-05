@@ -101,3 +101,4 @@ export let y = 7;
 export const a = {y:7, z: {a:""}};
 export let b = {y:7, z: {a:""}};
 export let c = {y:7, z: {["a"]:""}};
+export const d = function(): void {}

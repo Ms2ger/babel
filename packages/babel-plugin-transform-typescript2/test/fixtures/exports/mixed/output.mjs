@@ -48,7 +48,7 @@ export declare class C2 {
   protected f8: string;
   protected f9(): string;
 }
-export class C3 {
+export declare class C3 {
   #private;
   constructor();
 }
@@ -89,3 +89,4 @@ export declare let c: {
     a: string;
   };
 };
+export declare const d: () => void;
