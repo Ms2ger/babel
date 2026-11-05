@@ -23,6 +23,7 @@ import transpileNamespace, { getFirstIdentifier } from "./namespace.ts";
 import {
   isExportDeclaration, isExportDefaultDeclaration, isFunctionDeclaration, isFunctionExpression,
   isIdentifier, isImportDefaultSpecifier, isImportNamespaceSpecifier, isImportSpecifier,
+  isNumericLiteral,
   isPrivateName,
   isStringLiteral, isTSLiteralType, isTypeAnnotation, isTypeParameterDeclaration, stringTypeAnnotation, tsBigIntKeyword, tsDeclareFunction,
   TSLiteralType,
@@ -315,11 +316,21 @@ export default declare((api, opts: Options) => {
           if (isPrivateName(prop.key)) {
             throw new Error(`Unexpected private name`);
           }
+          let key = t.cloneNode(prop.key);
+          if (prop.computed) {
+            if (isStringLiteral(key)) {
+              key = t.identifier(key.value);
+            } else if (isNumericLiteral(key)) {
+              // Fine
+            } else {
+              // TODO: ts supports keys like `[Symbol.hasInstance]`
+              throw new Error(`Unexpected property key ${key}`)
+            }
+          }
           let signature = tsPropertySignature(
-            t.cloneNode(prop.key),
+            key,
             t.tsTypeAnnotation(inferType(prop.value, widen || true))
           );
-          signature.computed = prop.computed;
           return signature;
         })
         let literal = tsTypeLiteral(members);
@@ -745,6 +756,9 @@ export default declare((api, opts: Options) => {
               declarator.init = null;
             } else {
               let inferred = inferType(declarator.init, path.node.kind !== "const");
+              if (!inferred) {
+                throw 12
+              }
               if (path.node.kind === "const" && isTSLiteralType(inferred)) {
 
               } else {
