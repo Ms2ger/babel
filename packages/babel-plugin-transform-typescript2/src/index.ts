@@ -346,7 +346,8 @@ export default declare((api, opts: Options) => {
 
   }
   function isReachableFromExport(id: string | undefined, scope) : boolean {
-    console.log(`isReachableFromExport(${id})`, scope)
+    console.log(`isReachableFromExport(${id})`)
+    // console.log(scope)
     if (!id) {
       return false;
     }
@@ -487,7 +488,7 @@ export default declare((api, opts: Options) => {
           // node = path.node;
         } else {
           console.log('---ImportDeclaration---', generate(path.node).code)
-          console.log('---ImportDeclaration---', path.node.specifiers)
+          // console.log('---ImportDeclaration---', path.node.specifiers)
           const specifiers = path.node.specifiers.filter(sp => {
             let result = (() => {
               if (isImportDefaultSpecifier(sp)) {
@@ -614,7 +615,7 @@ export default declare((api, opts: Options) => {
           }
           // console.log(path.getTypeAnnotation());
           let {node} = path;
-          console.log("ExportDefaultDeclaration", node)
+          // console.log("ExportDefaultDeclaration", node)
           // TODO: apply to normal `export const`. `export let` gets similar but no literal types
           // TODO: support `as foo`, `as const` annotations
           if (!isFunctionDeclaration(node.declaration)) {
@@ -737,7 +738,8 @@ export default declare((api, opts: Options) => {
         if (seen.has(path.node)) {
           return;
         }
-        console.log("VariableDeclaration: before=", path.node.declarations)
+        console.log("VariableDeclaration:", generate(path.node).code);
+        // console.log("VariableDeclaration: before=", path.node.declarations)
         const vars = path.node.declarations.filter(decl => {
           if (!isIdentifier(decl.id)) {
             return false;
@@ -779,7 +781,7 @@ export default declare((api, opts: Options) => {
           }
           return declarator;
         });
-        console.log("VariableDeclaration: after=", vars)
+        // console.log("VariableDeclaration: after=", vars)
         if (!vars.length) {
           console.log("VariableDeclaration: removing decl")
           path.remove();
@@ -812,7 +814,7 @@ export default declare((api, opts: Options) => {
         }
       },
       ClassPrivateProperty(path) {
-        console.log("ClassPrivateProperty", path.node)
+        // console.log("ClassPrivateProperty", path.node)
         if (path.node.key.id.name !== "private") {
           throw new Error("This should have been filtered out already");
         }
@@ -821,8 +823,8 @@ export default declare((api, opts: Options) => {
         throw new Error("This should have been filtered out already");
       },
       ClassMethod(path) {
-        console.log(generate(path.node).code)
-        console.log(path.node)
+        // console.log(generate(path.node).code)
+        // console.log(path.node)
         let node = path.node;
         if (node.kind === "method" && !node.returnType) {
           throw new Error(`Must declare the return type of method`);
@@ -839,7 +841,7 @@ export default declare((api, opts: Options) => {
           node.params,
           t.cloneNode(node.returnType)
         );
-        console.log("~~~ClassMethod: ", node.key, node.accessibility === "private", newNode.returnType)
+        // console.log("~~~ClassMethod: ", node.key, node.accessibility === "private", newNode.returnType)
         newNode.kind = node.kind;
         newNode.static = node.static;
 

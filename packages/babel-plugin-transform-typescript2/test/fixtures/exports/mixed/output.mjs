@@ -90,3 +90,5 @@ export declare let c: {
   };
 };
 export declare const d: () => void;
+export declare const e: object;
+export declare let f: any;

@@ -102,3 +102,5 @@ export const a = {y:7, z: {a:""}};
 export let b = {y:7, z: {a:""}};
 export let c = {y:7, z: {["a"]:""}};
 export const d = function(): void {}
+export const e: object = {y:7, z: {a:""}};
+export let f: any = {y:7, z: {a:""}};
