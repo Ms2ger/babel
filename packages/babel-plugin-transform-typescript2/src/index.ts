@@ -22,6 +22,7 @@ import {
 import transpileNamespace, { getFirstIdentifier } from "./namespace.ts";
 import {
   classPrivateProperty,
+  isAssignmentPattern,
   isClassMethod,
   isClassPrivateMethod,
   isClassPrivateProperty,
@@ -33,7 +34,7 @@ import {
   isObjectProperty,
   isPrivateName,
   isSpreadElement,
-  isStringLiteral, isTSLiteralType, isTypeAnnotation, isTypeParameterDeclaration, privateName, stringTypeAnnotation, tsBigIntKeyword, tsBooleanKeyword, tsDeclareFunction,
+  isStringLiteral, isTSLiteralType, isTypeAnnotation, isTypeParameterDeclaration, isVoidPattern, privateName, stringTypeAnnotation, tsBigIntKeyword, tsBooleanKeyword, tsDeclareFunction,
   TSLiteralType,
   tsLiteralType,
   tsMethodSignature,
@@ -41,8 +42,10 @@ import {
   tsPropertySignature,
   tsStringKeyword,
   TSType,
+  tsTypeAnnotation,
   TSTypeAnnotation,
   tsTypeLiteral,
+  TSTypeParameter,
   TSTypeParameterDeclaration,
   TypeParameterDeclaration
 } from "@babel/types";
@@ -253,22 +256,62 @@ export default declare((api, opts: Options) => {
     }
     return arg;
   }
-  function verifyFunctionTypeHasTypeAnnotations(declaration): TSType {
+  function translateTypeAnnotation(arg: t.TypeAnnotation | TSTypeAnnotation) : TSTypeAnnotation {
+    if (isTypeAnnotation(arg)) {
+      // TODO
+      throw new Error(`Unexpected Flow TypeAnnotation ${arg}`);
+    }
+    return arg;
+  }
+  function inferFunctionType(declaration : t.FunctionExpression | t.ObjectMethod): [
+      TSTypeParameterDeclaration | null | undefined,
+      (t.ArrayPattern | t.Identifier | t.ObjectPattern | t.RestElement)[], // TODO review - all of those?
+      t.TSTypeAnnotation
+  ] {
     if (!declaration.returnType) {
       throw new Error(`Explicit return type is required`)
     }
-    for (const param of declaration.params) {
+    const params = [];
+    for (let param of declaration.params) {
+      if (isVoidPattern(param)) {
+        throw new Error("Void patterns not supported");
+      }
+      if (isAssignmentPattern(param)) {
+        if (!isIdentifier(param.left)) {
+          throw new Error("Assignment pattern in function parameter only supported with identifier LHS");
+        }
+        let typeAnnotation: t.TSTypeAnnotation;
+        if (param.left.typeAnnotation) {
+          typeAnnotation = translateTypeAnnotation(param.left.typeAnnotation);
+        } else {
+          let inferred = inferType(param.right);
+          if (!inferred) {
+            throw new Error("Could not infer type from RHS of assignment pattern");
+          }
+          typeAnnotation = tsTypeAnnotation(inferred);
+        }
+        param = param.left;
+        param.optional = true;
+        param.typeAnnotation = typeAnnotation;
+      }
       if (!param.typeAnnotation) {
         throw new Error(`Explicit parameter type is required`);
       }
+      params.push(param)
     }
+    return [
+      translateTypeParameters(declaration.typeParameters), // TODO test type parameters
+      params,
+      translateTypeAnnotation(declaration.returnType),
+    ]
+
   }
   function inferType(declaration, widen: boolean = false): TSType | undefined {
     if (!declaration) {
       throw new Error("Missing declaration in inferType()")
     }
     if (isFunctionExpression(declaration)) {
-      verifyFunctionTypeHasTypeAnnotations(declaration);
+      inferFunctionType(declaration);
       return t.tsFunctionType(
         translateTypeParameters(declaration.typeParameters),
         declaration.params,
@@ -354,12 +397,12 @@ export default declare((api, opts: Options) => {
           }
           let signature;
           if (isObjectMethod(prop)) {
-            verifyFunctionTypeHasTypeAnnotations(prop)
+            let [typeParameters, params, returnType] = inferFunctionType(prop)
             signature = tsMethodSignature(
               key,
-              translateTypeParameters(prop.typeParameters),
-              prop.params,
-              prop.returnType,
+              typeParameters,
+              params,
+              returnType,
             );
           } else {
             let inferred;

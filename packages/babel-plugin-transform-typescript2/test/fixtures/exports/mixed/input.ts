@@ -109,6 +109,8 @@ export function h(a: string, b?: string): void {};
 export let i = {
   a(_: string): number { return 7 },
   ["b"](_: string): number { return 7 },
+  c(p = function(): void {}): void { p() },
+  d(p: any = function(): void {}): void {},
 }
 export class C4 {
   static a: string;

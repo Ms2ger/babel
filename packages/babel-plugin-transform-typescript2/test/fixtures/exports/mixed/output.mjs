@@ -102,6 +102,8 @@ export declare function h(a: string, b?: string): void;
 export declare let i: {
   a(_: string): number;
   b(_: string): number;
+  c(p?: () => void): void;
+  d(p?: any): void;
 };
 export declare class C4 {
   static a: string;
