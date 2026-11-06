@@ -76,19 +76,33 @@ export declare const a: {
   z: {
     a: string;
   };
+  x: boolean;
 };
 export declare let b: {
   y: number;
   z: {
     a: string;
+    9: string;
   };
+  x: boolean;
 };
 export declare let c: {
   y: number;
   z: {
     a: string;
+    9: string;
   };
+  x: boolean;
 };
 export declare const d: () => void;
 export declare const e: object;
 export declare let f: any;
+export declare function g(...args: number[]): void;
+export declare function h(a: string, b?: string): void;
+export declare let i: {
+  a(_: string): number;
+  b(_: string): number;
+};
+export declare class C4 {
+  static a: string;
+}

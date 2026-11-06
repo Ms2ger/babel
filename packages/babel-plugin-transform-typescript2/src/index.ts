@@ -22,15 +22,21 @@ import {
 import transpileNamespace, { getFirstIdentifier } from "./namespace.ts";
 import {
   classPrivateProperty,
+  isClassMethod,
   isClassPrivateMethod,
   isClassPrivateProperty,
   isExportDeclaration, isExportDefaultDeclaration, isFunctionDeclaration, isFunctionExpression,
   isIdentifier, isImportDefaultSpecifier, isImportNamespaceSpecifier, isImportSpecifier,
   isNumericLiteral,
+  isObjectMember,
+  isObjectMethod,
+  isObjectProperty,
   isPrivateName,
-  isStringLiteral, isTSLiteralType, isTypeAnnotation, isTypeParameterDeclaration, privateName, stringTypeAnnotation, tsBigIntKeyword, tsDeclareFunction,
+  isSpreadElement,
+  isStringLiteral, isTSLiteralType, isTypeAnnotation, isTypeParameterDeclaration, privateName, stringTypeAnnotation, tsBigIntKeyword, tsBooleanKeyword, tsDeclareFunction,
   TSLiteralType,
   tsLiteralType,
+  tsMethodSignature,
   tsNumberKeyword,
   tsPropertySignature,
   tsStringKeyword,
@@ -247,17 +253,29 @@ export default declare((api, opts: Options) => {
     }
     return arg;
   }
-  function inferType(declaration, widen: boolean = false): TSType | undefined {
-    if (isFunctionExpression(declaration)) {
-      if (!declaration.returnType) {
-        throw new Error(`Explicit return type is required`)
+  function verifyFunctionTypeHasTypeAnnotations(declaration): TSType {
+    if (!declaration.returnType) {
+      throw new Error(`Explicit return type is required`)
+    }
+    for (const param of declaration.params) {
+      if (!param.typeAnnotation) {
+        throw new Error(`Explicit parameter type is required`);
       }
+    }
+  }
+  function inferType(declaration, widen: boolean = false): TSType | undefined {
+    if (!declaration) {
+      throw new Error("Missing declaration in inferType()")
+    }
+    if (isFunctionExpression(declaration)) {
+      verifyFunctionTypeHasTypeAnnotations(declaration);
       return t.tsFunctionType(
         translateTypeParameters(declaration.typeParameters),
         declaration.params,
         declaration.returnType,
       )
     }
+    console.log("inferType:", declaration)
 
     switch (declaration.type) {
       case "TemplateLiteral": {
@@ -314,8 +332,12 @@ export default declare((api, opts: Options) => {
         return tsLiteralType(t.cloneNode(declaration));
       }
       case "ObjectExpression": {
-        let members = declaration.properties.map((prop: t.ObjectProperty) => {
+
+        let members = declaration.properties.map((prop: t.ObjectProperty | t.ObjectMethod | t.SpreadElement) => {
           // TODO factor out
+          if (isSpreadElement(prop)) {
+            throw new Error(`Object with spread assignment not supported`);
+          }
           if (isPrivateName(prop.key)) {
             throw new Error(`Unexpected private name`);
           }
@@ -330,10 +352,30 @@ export default declare((api, opts: Options) => {
               throw new Error(`Unexpected property key ${key}`)
             }
           }
-          let signature = tsPropertySignature(
-            key,
-            t.tsTypeAnnotation(inferType(prop.value, widen || true))
-          );
+          let signature;
+          if (isObjectMethod(prop)) {
+            verifyFunctionTypeHasTypeAnnotations(prop)
+            signature = tsMethodSignature(
+              key,
+              translateTypeParameters(prop.typeParameters),
+              prop.params,
+              prop.returnType,
+            );
+          } else {
+            let inferred;
+            if (!prop.value) {
+              console.log(key)
+              throw new Error(`Property without value in object literal (${key})`)
+            }
+            inferred = inferType(prop.value, widen || true);
+            if (!inferred) {
+              throw new Error(`Untyped property in object literal (${key})`)
+            }
+            signature = tsPropertySignature(
+              key,
+              t.tsTypeAnnotation(inferred)
+            );
+          }
           return signature;
         })
         let literal = tsTypeLiteral(members);
@@ -480,7 +522,9 @@ export default declare((api, opts: Options) => {
           // }
         },
       },
-
+      EmptyStatement(path) {
+        path.remove();
+      },
       ImportDeclaration(path, state) {
 
         // let node;
@@ -588,11 +632,6 @@ export default declare((api, opts: Options) => {
       },
 
       ExportDefaultDeclaration: {
-        // TODO:
-        // export default "foo";
-        // →
-        // declare const _default: "foo";
-        // export default _default;
         enter(path) {
           function addExplicitVariable(declaration: TSLiteralType) {
             let id = t.identifier("_default");
@@ -856,6 +895,9 @@ export default declare((api, opts: Options) => {
         path.replaceWith(newNode);
       // throw 8
 
+      },
+      StaticBlock(path) {
+        path.remove();
       },
 
       Class(path) {

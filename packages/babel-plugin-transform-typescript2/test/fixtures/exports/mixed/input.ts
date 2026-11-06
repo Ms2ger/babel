@@ -98,9 +98,21 @@ export const enum E3 {
 
 export const x = 7;
 export let y = 7;
-export const a = {y:7, z: {a:""}};
-export let b = {y:7, z: {a:""}};
-export let c = {y:7, z: {["a"]:""}};
+export const a = {y:7, z: {a:""}, x: true};
+export let b = {y:7, z: {a:"", 9: ``}, x: true};
+export let c = {y:7, z: {["a"]:"", [9]: ""}, x: true};
 export const d = function(): void {}
-export const e: object = {y:7, z: {a:""}};
-export let f: any = {y:7, z: {a:""}};
+export const e: object = {y:7, z: {a:""}, x: true};
+export let f: any = {y:7, z: {a:""}, x: true};
+export function g(...args: number[]): void {};
+export function h(a: string, b?: string): void {};
+export let i = {
+  a(_: string): number { return 7 },
+  ["b"](_: string): number { return 7 },
+}
+export class C4 {
+  static a: string;
+  static {
+    this.a = "static";
+  }
+}
