@@ -179,14 +179,14 @@ export default declare((api, opts: Options) => {
         path.remove();
       }
 
-      if (node.accessibility) node.accessibility = null;
-      if (node.abstract) node.abstract = null;
-      if (node.readonly) node.readonly = null;
-      if (node.optional) node.optional = null;
+      // if (node.accessibility) node.accessibility = null;
+      // if (node.abstract) node.abstract = null;
+      // if (node.readonly) node.readonly = null;
+      // if (node.optional) node.optional = null;
       // if (node.typeAnnotation) node.typeAnnotation = null;
-      if (node.definite) node.definite = null;
-      if (node.declare) node.declare = null;
-      if (node.override) node.override = null;
+      // if (node.definite) node.definite = null;
+      // if (node.declare) node.declare = null;
+      // if (node.override) node.override = null;
     },
     method({ node }: NodePath<t.ClassMethod | t.ClassPrivateMethod>) {
       if (node.accessibility) node.accessibility = null;
@@ -975,25 +975,25 @@ export default declare((api, opts: Options) => {
         // handle `TSParameterProperty` and `ClassProperty` here because the
         // class transform would transform the class, causing more specific
         // visitors to not run.
-        // path.get("body.body").forEach(child => {
-        //   if (child.isClassMethod() || child.isClassPrivateMethod()) {
-        //     if (child.node.kind === "constructor") {
-        //       classMemberVisitors.constructor(
-        //         // @ts-expect-error A constructor must not be a private method
-        //         child,
-        //         path,
-        //       );
-        //     } else {
-        //       classMemberVisitors.method(child);
-        //     }
-        //   } else if (
-        //     child.isClassProperty() ||
-        //     child.isClassPrivateProperty() ||
-        //     child.isClassAccessorProperty()
-        //   ) {
-        //     classMemberVisitors.field(child);
-        //   }
-        // });
+        path.get("body.body").forEach(child => {
+          if (child.isClassMethod() || child.isClassPrivateMethod()) {
+            if (child.node.kind === "constructor") {
+              classMemberVisitors.constructor(
+                // @ts-expect-error A constructor must not be a private method
+                child,
+                path,
+              );
+            } else {
+              classMemberVisitors.method(child);
+            }
+          } else if (
+            child.isClassProperty() ||
+            child.isClassPrivateProperty() ||
+            child.isClassAccessorProperty()
+          ) {
+            classMemberVisitors.field(child);
+          }
+        });
       },
       Function(path) {
         const { node } = path;
