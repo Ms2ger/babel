@@ -35,10 +35,11 @@ import {
   isPrivateName,
   isReturnStatement,
   isSpreadElement,
-  isStringLiteral, isTSLiteralType, isTypeAnnotation, isTypeParameterDeclaration, isVoidPattern, privateName, stringTypeAnnotation, tsBigIntKeyword, tsBooleanKeyword, tsDeclareFunction,
+  isStringLiteral, isTSAsExpression, isTSLiteralType, isTSTypeReference, isTypeAnnotation, isTypeParameterDeclaration, isVoidPattern, privateName, stringTypeAnnotation, tsBigIntKeyword, tsBooleanKeyword, tsDeclareFunction,
   TSLiteralType,
   tsLiteralType,
   tsMethodSignature,
+  tsNeverKeyword,
   tsNumberKeyword,
   tsPropertySignature,
   tsStringKeyword,
@@ -279,7 +280,7 @@ export default declare((api, opts: Options) => {
       if (param.left.typeAnnotation) {
         typeAnnotation = translateTypeAnnotation(param.left.typeAnnotation);
       } else {
-        let inferred = inferType(param.right, true);
+        let inferred = inferType(param.right, InferApproach.Widen);
         if (!inferred) {
           throw new Error("Could not infer type from RHS of assignment pattern");
         }
@@ -318,9 +319,24 @@ export default declare((api, opts: Options) => {
     ]
 
   }
-  function inferType(declaration, widen: boolean = false): TSType | undefined {
+  enum InferApproach {
+    Default,
+    Widen,
+    Const,
+  }
+  function inferType(declaration, approach: InferApproach = InferApproach.Default): TSType | undefined {
     if (!declaration) {
       throw new Error("Missing declaration in inferType()")
+    }
+    if (isTSAsExpression(declaration)) {
+      let typeAnnotation = declaration.typeAnnotation;
+      if (isTSTypeReference(typeAnnotation) && typeAnnotation.typeName.name === "const") {
+        let inferred = inferType(declaration.expression, InferApproach.Const);
+        console.log(inferred);
+        // throw 1
+        return inferred;
+      }
+      return typeAnnotation;
     }
     if (isFunctionExpression(declaration)) {
       inferFunctionType(declaration);
@@ -330,7 +346,7 @@ export default declare((api, opts: Options) => {
         declaration.returnType,
       )
     }
-    console.log("inferType:", declaration)
+    // console.log("inferType:", declaration)
 
     switch (declaration.type) {
       case "TemplateLiteral": {
@@ -338,7 +354,7 @@ export default declare((api, opts: Options) => {
           throw new Error(`Template literal with expressions not supported`)
         }
         // TODO: any edge cases?
-        if (widen) {
+        if (approach === InferApproach.Widen) {
           return tsStringKeyword();
         }
         return tsLiteralType(t.stringLiteral(declaration.quasis[0].value.raw));
@@ -352,7 +368,7 @@ export default declare((api, opts: Options) => {
         if (arg.type !== "NumericLiteral" && arg.type !== "BigIntLiteral") {
           throw new Error(`Unary operator ${op} not supported with argument ${arg}`);
         }
-        if (widen) {
+        if (approach === InferApproach.Widen) {
           return arg.type === "NumericLiteral" ? tsNumberKeyword() : tsBigIntKeyword();
         }
         if (op === "+") {
@@ -363,25 +379,25 @@ export default declare((api, opts: Options) => {
         }
       }
       case "StringLiteral": {
-        if (widen) {
+        if (approach === InferApproach.Widen) {
           return tsStringKeyword();
         }
         return tsLiteralType(t.cloneNode(declaration));
       }
       case "NumericLiteral": {
-        if (widen) {
+        if (approach === InferApproach.Widen) {
           return tsNumberKeyword();
         }
         return tsLiteralType(t.cloneNode(declaration));
       }
       case "BigIntLiteral": {
-        if (widen) {
+        if (approach === InferApproach.Widen) {
           return tsBigIntKeyword();
         }
         return tsLiteralType(t.cloneNode(declaration));
       }
       case "BooleanLiteral": {
-        if (widen) {
+        if (approach === InferApproach.Widen) {
           return tsBooleanKeyword();
         }
         return tsLiteralType(t.cloneNode(declaration));
@@ -422,7 +438,7 @@ export default declare((api, opts: Options) => {
               console.log(key)
               throw new Error(`Property without value in object literal (${key})`)
             }
-            inferred = inferType(prop.value, widen || true);
+            inferred = inferType(prop.value, InferApproach.Widen); // XXX check approach
             if (!inferred) {
               throw new Error(`Untyped property in object literal (${key})`)
             }
@@ -882,9 +898,10 @@ export default declare((api, opts: Options) => {
               ))
               declarator.init = null;
             } else {
-              let inferred = inferType(declarator.init, path.node.kind !== "const");
+              let inferred = inferType(declarator.init, path.node.kind === "const" ? InferApproach.Default : InferApproach.Widen);
               if (!inferred) {
-                throw 12
+                inferred = tsNeverKeyword();
+                // throw 12
               }
               if (path.node.kind === "const" && isTSLiteralType(inferred)) {
 
