@@ -11,3 +11,15 @@ export let i = {
 export let i = {
   a([a] = [7]): void {}
 };
+//
+export class C5 {
+  constructor(private ...args: string[]) {}
+}
+//
+export class C5 {
+  constructor(private {a}: {a: string}) {}
+}
+//
+export class C5 {
+  constructor(private [a]: string[]) {}
+}

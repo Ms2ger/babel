@@ -108,3 +108,10 @@ export declare let i: {
 export declare class C4 {
   static a: string;
 }
+export declare class C5 {
+  constructor([a]: string[]);
+  foo([a]: string[]): void;
+}
+export declare class C6 {
+  constructor(a?: string);
+}

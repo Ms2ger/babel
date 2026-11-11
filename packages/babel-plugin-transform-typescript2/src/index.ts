@@ -27,7 +27,7 @@ import {
   isClassPrivateMethod,
   isClassPrivateProperty,
   isExportDeclaration, isExportDefaultDeclaration, isFunctionDeclaration, isFunctionExpression,
-  isIdentifier, isImportDefaultSpecifier, isImportNamespaceSpecifier, isImportSpecifier,
+  isIdentifier, isImportDefaultSpecifier, isImportExpression, isImportNamespaceSpecifier, isImportSpecifier,
   isNumericLiteral,
   isObjectMember,
   isObjectMethod,
@@ -205,38 +205,39 @@ export default declare((api, opts: Options) => {
       // property is only added once. This is necessary for cases like
       // using `transform-classes`, which causes this visitor to run
       // twice.
-      const assigns: t.ExpressionStatement[] = [];
+      const generatedProperties: t.ClassProperty[] = [];
       const { scope } = path;
       for (const paramPath of path.get("params")) {
         if (paramPath.isTSParameterProperty()) {
+          // path.node.params = translateFunctionParameters(path.node.params)
           const param = paramPath.node;
           const parameter = param.parameter;
           if (PARSED_PARAMS.has(parameter)) continue;
           PARSED_PARAMS.add(parameter);
-          let id;
-          if (t.isIdentifier(parameter)) {
-            id = parameter;
-          } else if (
-            t.isAssignmentPattern(parameter) &&
-            t.isIdentifier(parameter.left)
-          ) {
-            id = parameter.left;
-          } else {
+          let id = translateFunctionParameter(parameter);
+          if (!isIdentifier(id)) {
             throw paramPath.buildCodeFrameError(
               "Parameter properties can not be destructuring patterns.",
             );
           }
-          assigns.push(
-            template.statement.ast`
-              this.${t.cloneNode(id)} = ${t.cloneNode(id)}
-            ` as t.ExpressionStatement,
+          let newNode = t.classProperty(
+            t.cloneNode(id),
+            undefined,
+            t.cloneNode(id.typeAnnotation)
           );
+          newNode.accessibility = param.accessibility;
+          newNode.readonly = param.readonly;
+          generatedProperties.push(newNode);
 
-          paramPath.replaceWith(param.parameter);
+          paramPath.replaceWith(id);
           scope.registerBinding("param", paramPath);
         }
       }
-      injectInitialization(classPath, path, assigns);
+      classPath.node.body.body.unshift(
+        ...generatedProperties
+      )
+
+      // injectInitialization(classPath, path, assigns);
     },
   };
 
@@ -263,6 +264,44 @@ export default declare((api, opts: Options) => {
     }
     return arg;
   }
+  function translateFunctionParameter(param: t.FunctionParameter):
+    (t.ArrayPattern | t.Identifier | t.ObjectPattern | t.RestElement) // TODO review - all of those?
+  {
+    if (isVoidPattern(param)) {
+      throw new Error("Void patterns not supported");
+    }
+    if (isAssignmentPattern(param)) {
+      if (!isIdentifier(param.left)) {
+        throw new Error("Assignment pattern in function parameter only supported with identifier LHS");
+      }
+      let typeAnnotation: t.TSTypeAnnotation;
+      if (param.left.typeAnnotation) {
+        typeAnnotation = translateTypeAnnotation(param.left.typeAnnotation);
+      } else {
+        let inferred = inferType(param.right, true);
+        if (!inferred) {
+          throw new Error("Could not infer type from RHS of assignment pattern");
+        }
+        typeAnnotation = tsTypeAnnotation(inferred);
+      }
+      param = param.left;
+      param.optional = true;
+      param.typeAnnotation = typeAnnotation;
+    }
+    if (!param.typeAnnotation) {
+      throw new Error(`Explicit parameter type is required`);
+    }
+    // if (isIdentifier(param)) {
+    //   return param;
+    // }
+    // throw new Error(`translateFunctionParameter found ${param.type}`)
+    return param;
+  }
+  function translateFunctionParameters(origParams: t.FunctionParameter[]):
+    (t.ArrayPattern | t.Identifier | t.ObjectPattern | t.RestElement)[] // TODO review - all of those?
+  {
+    return origParams.map(translateFunctionParameter);
+  }
   function inferFunctionType(declaration : t.FunctionExpression | t.ObjectMethod): [
       TSTypeParameterDeclaration | null | undefined,
       (t.ArrayPattern | t.Identifier | t.ObjectPattern | t.RestElement)[], // TODO review - all of those?
@@ -271,37 +310,9 @@ export default declare((api, opts: Options) => {
     if (!declaration.returnType) {
       throw new Error(`Explicit return type is required`)
     }
-    const params = [];
-    for (let param of declaration.params) {
-      if (isVoidPattern(param)) {
-        throw new Error("Void patterns not supported");
-      }
-      if (isAssignmentPattern(param)) {
-        if (!isIdentifier(param.left)) {
-          throw new Error("Assignment pattern in function parameter only supported with identifier LHS");
-        }
-        let typeAnnotation: t.TSTypeAnnotation;
-        if (param.left.typeAnnotation) {
-          typeAnnotation = translateTypeAnnotation(param.left.typeAnnotation);
-        } else {
-          let inferred = inferType(param.right);
-          if (!inferred) {
-            throw new Error("Could not infer type from RHS of assignment pattern");
-          }
-          typeAnnotation = tsTypeAnnotation(inferred);
-        }
-        param = param.left;
-        param.optional = true;
-        param.typeAnnotation = typeAnnotation;
-      }
-      if (!param.typeAnnotation) {
-        throw new Error(`Explicit parameter type is required`);
-      }
-      params.push(param)
-    }
     return [
       translateTypeParameters(declaration.typeParameters), // TODO test type parameters
-      params,
+      translateFunctionParameters(declaration.params),
       translateTypeAnnotation(declaration.returnType),
     ]
 
@@ -693,6 +704,7 @@ export default declare((api, opts: Options) => {
               newConst,
               newExport,
             ]);
+            path.scope.registerBinding("_default", path); // TODO check
 
           }
           // console.log(path.getTypeAnnotation());
@@ -909,6 +921,8 @@ export default declare((api, opts: Options) => {
         path.node.value = null;
         if (path.node.accessibility === "private") {
           path.node.typeAnnotation = null;
+        } else if (path.node.accessibility === "public") {
+          path.node.accessibility = null;
         }
       },
       ClassPrivateProperty(path) {
@@ -965,7 +979,7 @@ export default declare((api, opts: Options) => {
         let newNode = t.tsDeclareMethod(
           t.cloneNode(node.key),
           typeParameters,
-          params,
+          translateFunctionParameters(params),
           returnType
         );
         newNode.computed = node.computed; // TODO weird things happening with type annotation

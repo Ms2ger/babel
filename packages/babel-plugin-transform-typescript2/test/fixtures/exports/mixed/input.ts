@@ -118,3 +118,11 @@ export class C4 {
     this.a = "static";
   }
 }
+export class C5 {
+  constructor([a]: string[]) {}
+  foo([a]: string[]): void {}
+}
+export class C6 {
+  constructor(a: string = "x") {}
+}
+
