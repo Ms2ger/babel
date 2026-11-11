@@ -942,20 +942,7 @@ export default declare((api, opts: Options) => {
 
         switch (node.kind) {
           case "method": {
-            if (node.accessibility !== "private") {
-              // let newNode = t.classProperty(
-              //   t.cloneNode(node.key),
-              //   undefined,
-              //   undefined,
-              //   /* todo decorators */ undefined,
-              //   node.computed,
-              //   node.static
-              // );
-              // newNode.accessibility = "private";
-              // path.replaceWith(newNode);
-              // return;
-            } else
-            if (!node.returnType) {
+            if (!node.returnType && node.accessibility !== "private") {
               throw new Error(`Must declare the return type of method`);
             }
             break;
@@ -974,6 +961,7 @@ export default declare((api, opts: Options) => {
         let typeParameters = t.cloneNode(translateTypeParameters(node.typeParameters));
         let returnType = node.returnType ? t.cloneNode(translateTypeAnnotation(node.returnType)) : node.returnType;
         let params = node.accessibility === "private" ? [] : node.params;
+        // Note: private methods will be replaced again in TSDeclareMethod.
         let newNode = t.tsDeclareMethod(
           t.cloneNode(node.key),
           typeParameters,
