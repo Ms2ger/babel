@@ -33,7 +33,7 @@ export declare class C1 {
   set f4(value: bigint);
   static f5(): number;
   private f6;
-  private f7();
+  private f7;
   protected f8: string;
   protected f9(): string;
 }
@@ -44,7 +44,7 @@ export declare class C2 {
   set f4(value: bigint);
   static f5(): number;
   private f6;
-  private f7();
+  private f7;
   protected f8: string;
   protected f9(): string;
 }

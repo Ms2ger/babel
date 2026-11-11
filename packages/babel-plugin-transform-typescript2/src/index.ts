@@ -189,15 +189,15 @@ export default declare((api, opts: Options) => {
       // if (node.override) node.override = null;
     },
     method({ node }: NodePath<t.ClassMethod | t.ClassPrivateMethod>) {
-      if (node.accessibility) node.accessibility = null;
-      if (node.abstract) node.abstract = null;
-      if (node.optional) node.optional = null;
-      if (node.override) node.override = null;
+      // if (node.accessibility) node.accessibility = null;
+      // if (node.abstract) node.abstract = null;
+      // if (node.optional) node.optional = null;
+      // if (node.override) node.override = null;
 
       // Rest handled by Function visitor
     },
     constructor(path: NodePath<t.ClassMethod>, classPath: NodePath<t.Class>) {
-      if (path.node.accessibility) path.node.accessibility = null;
+      // if (path.node.accessibility) path.node.accessibility = null;
       // Collects parameter properties so that we can add an assignment
       // for each of them in the constructor body
       //
@@ -800,8 +800,24 @@ export default declare((api, opts: Options) => {
 
         // path.replaceWith(newNode);
         // seen.add(newNode);
-        if (path.node.accessibility === "private") {
-          path.node.returnType = null;
+        let node = path.node;
+        if (node.accessibility === "private") {
+          if (node.kind === "method") {
+            // Duplicated below
+            let newNode = t.classProperty(
+              t.cloneNode(node.key),
+              undefined,
+              undefined,
+              /* todo decorators */ undefined,
+              node.computed,
+              node.static
+            );
+            newNode.accessibility = "private";
+            path.replaceWith(newNode);
+            return;
+          }
+          // TODO review.
+          node.returnType = null;
         }
       },
 
@@ -904,32 +920,74 @@ export default declare((api, opts: Options) => {
       ClassPrivateMethod(path) {
         throw new Error("This should have been filtered out already");
       },
+
+
+      // function translateTypeParameters(arg: TSTypeParameterDeclaration | TypeParameterDeclaration | null | undefined): TSTypeParameterDeclaration | null | undefined {
+      //   if (isTypeParameterDeclaration(arg)) {
+      //     // TODO
+      //     throw new Error(`Unexpected Flow TypeParameterDeclaration ${arg}`);
+      //   }
+      //   return arg;
+      // }
+      // function translateTypeAnnotation(arg: t.TypeAnnotation | TSTypeAnnotation) : TSTypeAnnotation {
+      //   if (isTypeAnnotation(arg)) {
+      //     // TODO
+      //     throw new Error(`Unexpected Flow TypeAnnotation ${arg}`);
+      //   }
+
       ClassMethod(path) {
         // console.log(generate(path.node).code)
         // console.log(path.node)
-        let node = path.node;
-        if (node.kind === "method" && !node.returnType) {
-          throw new Error(`Must declare the return type of method`);
+        let node: t.ClassMethodComputed | t.ClassMethodNonComputed = path.node;
+
+        switch (node.kind) {
+          case "method": {
+            if (node.accessibility !== "private") {
+              // let newNode = t.classProperty(
+              //   t.cloneNode(node.key),
+              //   undefined,
+              //   undefined,
+              //   /* todo decorators */ undefined,
+              //   node.computed,
+              //   node.static
+              // );
+              // newNode.accessibility = "private";
+              // path.replaceWith(newNode);
+              // return;
+            } else
+            if (!node.returnType) {
+              throw new Error(`Must declare the return type of method`);
+            }
+            break;
+          }
+          case "constructor": {
+            break;
+          }
+          case "get": {
+            break;
+          }
+          case "set": {
+            break;
+          }
+
         }
-        if (isTypeParameterDeclaration(node.typeParameters)) {
-          throw new Error("Found TypeParameterDeclaration");
-        }
-        if (isTypeAnnotation(node.returnType)) {
-          throw new Error("Found TypeAnnotation");
-        }
+        let typeParameters = t.cloneNode(translateTypeParameters(node.typeParameters));
+        let returnType = node.returnType ? t.cloneNode(translateTypeAnnotation(node.returnType)) : node.returnType;
+        let params = node.accessibility === "private" ? [] : node.params;
         let newNode = t.tsDeclareMethod(
           t.cloneNode(node.key),
-          t.cloneNode(node.typeParameters),
-          node.params,
-          t.cloneNode(node.returnType)
+          typeParameters,
+          params,
+          returnType
         );
+        newNode.computed = node.computed; // TODO weird things happening with type annotation
         // console.log("~~~ClassMethod: ", node.key, node.accessibility === "private", newNode.returnType)
         newNode.kind = node.kind;
         newNode.static = node.static;
 
         // XXX What's the difference between these?
         newNode.access = node.access;
-        newNode.accessibility = node.accessibility;
+        newNode.accessibility = node.accessibility === "public" ? null : node.accessibility;
 
         // if (!isDefaultExport) {
         //   newNode.declare = true;
