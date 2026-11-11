@@ -125,4 +125,9 @@ export class C5 {
 export class C6 {
   constructor(a: string = "x") {}
 }
+export function j() {
+  return {
+    a: ""
+  }
+}
 

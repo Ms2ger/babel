@@ -33,6 +33,7 @@ import {
   isObjectMethod,
   isObjectProperty,
   isPrivateName,
+  isReturnStatement,
   isSpreadElement,
   isStringLiteral, isTSLiteralType, isTypeAnnotation, isTypeParameterDeclaration, isVoidPattern, privateName, stringTypeAnnotation, tsBigIntKeyword, tsBooleanKeyword, tsDeclareFunction,
   TSLiteralType,
@@ -740,13 +741,24 @@ export default declare((api, opts: Options) => {
           console.log("    -- not skipping")
           // dts("FunctionDeclaration", `function ${node.id?.name ?? ""}(): `);
           if (!node.returnType) {
-            throw new Error(`Must declare the return type of function ${node.id?.name ?? ""}`);
+            let returns: t.ReturnStatement[] = node.body.body.filter(isReturnStatement);
+            if (returns.length === 1) {
+              let inferred = inferType(returns[0].argument)
+              console.log("inferred from return statement", inferred)
+              if (inferred) {
+                node.returnType = tsTypeAnnotation(inferred);
+              }
+
+            }
+            if (!node.returnType) {
+              throw new Error(`Must declare the return type of function ${node.id?.name ?? ""}`);
+            }
           }
           let newNode = t.tsDeclareFunction(
             t.cloneNode(node.id),
             t.cloneNode(translateTypeParameters(node.typeParameters)),
             node.params,
-            t.cloneNode(node.returnType));
+            t.cloneNode(translateTypeAnnotation(node.returnType)));
           if (!isDefaultExport) {
             newNode.declare = true;
           }

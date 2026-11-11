@@ -23,3 +23,19 @@ export class C5 {
 export class C5 {
   constructor(private [a]: string[]) {}
 }
+//
+export function x() {
+  {
+    return {
+      a: ""
+    }
+  }
+}
+//
+export function x() {
+  if (true) {
+    return {
+      a: ""
+    }
+  }
+}
