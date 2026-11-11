@@ -118,3 +118,8 @@ export declare class C6 {
 export declare function j(): {
   a: string;
 };
+export declare function k<T>(): {
+  f(a: {
+    t: T;
+  }): void;
+};

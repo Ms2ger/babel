@@ -130,4 +130,8 @@ export function j() {
     a: ""
   }
 }
-
+export function k<T>() {
+  return {
+    f(a: {t: T}): void {}
+  };
+}
