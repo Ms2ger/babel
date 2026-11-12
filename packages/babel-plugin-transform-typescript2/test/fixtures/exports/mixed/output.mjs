@@ -123,3 +123,4 @@ export declare function k<T>(): {
     t: T;
   }): void;
 };
+export declare let e0: number;

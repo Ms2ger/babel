@@ -135,3 +135,5 @@ export function k<T>() {
     f(a: {t: T}): void {}
   };
 }
+
+export let e0!: number
