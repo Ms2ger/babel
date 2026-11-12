@@ -71,6 +71,3 @@ export let y = 7;
 export const a = {y:7, z: {a:""}};
 export let b = {y:7, z: {a:""}};
 export default {y:7, z: {a:""}};
-// export let y = 7 as 7;
-// export let y = 7 as 77;
-// export const a = {y:7, z: {a:""}} as {};
