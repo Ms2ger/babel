@@ -1,0 +1,1 @@
+export const i = { a() { return 7 } } as const;

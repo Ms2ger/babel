@@ -331,6 +331,9 @@ export default declare((api, opts: Options) => {
     // console.log("inferType:", declaration)
 
     if (isArrayExpression(declaration)) {
+      if (approach !== InferApproach.Const) {
+        throw new Error("Can't infer array type unless it's const")
+      }
       let elementTypes: t.TSType[] = [];
       for (const elt of declaration.elements) {
         if (isSpreadElement(elt)) {

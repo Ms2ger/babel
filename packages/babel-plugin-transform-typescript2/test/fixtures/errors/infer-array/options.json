@@ -1,0 +1,5 @@
+{
+  "sourceType": "module",
+  "plugins": ["transform-typescript2"],
+  "throws": "Can't infer array type unless it's const"
+}
