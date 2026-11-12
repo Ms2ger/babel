@@ -12,5 +12,12 @@ export declare let d: {
     readonly a: "";
   };
 };
-export declare const e: readonly [1, 2, 3];
-export declare const f: "i";
+export declare const e: readonly [1, "2", 3, () => void, {
+  readonly a: readonly [""];
+}];
+export declare const f: {
+  readonly a: readonly [1, "2", 3, () => void, {
+    readonly a: readonly [""];
+  }];
+};
+export declare const g: "i";

@@ -22,6 +22,8 @@ import {
 import transpileNamespace, { getFirstIdentifier } from "./namespace.ts";
 import {
   classPrivateProperty,
+  isArrayExpression,
+  isArrayPattern,
   isAssignmentPattern,
   isClassMethod,
   isClassPrivateMethod,
@@ -339,7 +341,7 @@ export default declare((api, opts: Options) => {
       return typeAnnotation;
     }
     if (isFunctionExpression(declaration)) {
-      inferFunctionType(declaration);
+      inferFunctionType(declaration); // TODO Why did I put this here
       return t.tsFunctionType(
         translateTypeParameters(declaration.typeParameters),
         declaration.params,
@@ -347,6 +349,21 @@ export default declare((api, opts: Options) => {
       )
     }
     // console.log("inferType:", declaration)
+
+    if (isArrayExpression(declaration)) {
+      let elementTypes: t.TSType[] = [];
+      for (const elt of declaration.elements) {
+        let inferred = inferType(elt, approach);
+        if (!inferred) {
+          throw new Error("Can't infer type for array element");
+        }
+        elementTypes.push(
+          inferred
+        );
+      }
+      let tupleType = t.tsTupleType(elementTypes);
+      return t.tsTypeOperator(tupleType, "readonly");
+    }
 
     switch (declaration.type) {
       case "TemplateLiteral": {
@@ -438,7 +455,10 @@ export default declare((api, opts: Options) => {
               console.log(key)
               throw new Error(`Property without value in object literal (${key})`)
             }
-            inferred = inferType(prop.value, InferApproach.Widen); // XXX check approach
+            inferred = inferType(
+              prop.value,
+              approach === InferApproach.Const ? InferApproach.Const : InferApproach.Widen // XXX check approach
+            );
             if (!inferred) {
               throw new Error(`Untyped property in object literal (${key})`)
             }
@@ -446,6 +466,9 @@ export default declare((api, opts: Options) => {
               key,
               t.tsTypeAnnotation(inferred)
             );
+            if (approach === InferApproach.Const) {
+              signature.readonly = true;
+            }
           }
           return signature;
         })
@@ -789,15 +812,17 @@ export default declare((api, opts: Options) => {
         },
       },
       StringLiteral(path) {
-        dts("StringLiteral", `"${path.node.value}"`);
+        // dts("StringLiteral", `"${path.node.value}"`);
       },
       TSTypeAnnotation(path) {
-        // TODO unreached
+        // TODO not unreached
+        // throw 2
         // dts("TSTypeAnnotation", `${path.node}`);
       },
       TSTypeAliasDeclaration(path) {
-        // TODO unreached
-        dts("TSTypeAliasDeclaration", generate(path.node).code);
+        // TODO not unreached
+        // throw 3
+        // dts("TSTypeAliasDeclaration", generate(path.node).code);
         path.skip();
         // dts("TSTypeAnnotation", `${path.node}`);
       },
@@ -811,7 +836,7 @@ export default declare((api, opts: Options) => {
       //   dts("TSNumberKeyword", `string`);
       // },
       TSType({node}) {
-        dts("TSType", generate(node).code);
+        // dts("TSType", generate(node).code);
 
       },
       TSDeclareFunction(path) {
@@ -890,7 +915,7 @@ export default declare((api, opts: Options) => {
             throw undefined;
           }
           if (!declarator.id.typeAnnotation) {
-            if (isFunctionExpression(declarator.init)) {
+            if (false && isFunctionExpression(declarator.init)) {
               declarator.id.typeAnnotation = t.tsTypeAnnotation(t.tsFunctionType(
                 translateTypeParameters(declarator.init.typeParameters),
                 declarator.init.params,
@@ -898,18 +923,23 @@ export default declare((api, opts: Options) => {
               ))
               declarator.init = null;
             } else {
+              // if (declarator.init)
               let inferred = inferType(declarator.init, path.node.kind === "const" ? InferApproach.Default : InferApproach.Widen);
               if (!inferred) {
                 inferred = tsNeverKeyword();
-                // throw 12
+                throw 12
               }
-              if (path.node.kind === "const" && isTSLiteralType(inferred)) {
-
-              } else {
-
+              // TODO clean up
+              if (isTSAsExpression(declarator.init) && isTSTypeReference(declarator.init.typeAnnotation) && declarator.init.typeAnnotation.typeName.name === "const") {
+                // export declare const a: 7;
                 declarator.id.typeAnnotation = t.tsTypeAnnotation(inferred);
-
                 declarator.init = null;
+              } else if (path.node.kind !== "const" || !isTSLiteralType(inferred)) {
+                // export declare const a: 7;
+                declarator.id.typeAnnotation = t.tsTypeAnnotation(inferred);
+                declarator.init = null;
+              } else {
+                // export declare const a = 7;
               }
             }
 
