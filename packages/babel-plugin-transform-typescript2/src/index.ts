@@ -32,6 +32,7 @@ import {
   isExportDeclaration, isExportDefaultDeclaration, isFunctionDeclaration, isFunctionExpression,
   isFunctionParameter,
   isIdentifier, isImportDefaultSpecifier, isImportExpression, isImportNamespaceSpecifier, isImportSpecifier,
+  isMemberExpression,
   isNumericLiteral,
   isObjectMember,
   isObjectMethod,
@@ -406,8 +407,25 @@ export default declare((api, opts: Options) => {
         return tsLiteralType(t.cloneNode(declaration));
       }
       case "ObjectExpression": {
-
-        let members = declaration.properties.map((prop: t.ObjectProperty | t.ObjectMethod | t.SpreadElement) => {
+          function isReferenceToGlobalSymbol(key: t.Expression) {
+            if (!isMemberExpression(key)) {
+              return false;
+            }
+            if (isIdentifier(key.object) && key.object.name === "Symbol") {
+              // TODO: check this is a reference to the real Symbol
+              // TODO: check the property is valid
+              return true;
+            }
+            if (isMemberExpression(key.object) &&
+                isIdentifier(key.object.object) && key.object.object.name === "globalThis" &&
+                isIdentifier(key.object.property) && key.object.property.name === "Symbol") {
+              // TODO: check this is a reference to the real Symbol
+              // TODO: check the property is valid
+              return true;
+            }
+            return false;
+          }
+          let members = declaration.properties.map((prop: t.ObjectProperty | t.ObjectMethod | t.SpreadElement) => {
           // TODO factor out
           if (isSpreadElement(prop)) {
             throw new Error(`Object with spread assignment not supported`);
@@ -421,8 +439,9 @@ export default declare((api, opts: Options) => {
               key = t.identifier(key.value);
             } else if (isNumericLiteral(key)) {
               // Fine
-            } else {
+            } else if (isReferenceToGlobalSymbol(key)) {
               // TODO: ts supports keys like `[Symbol.hasInstance]`
+            } else {
               throw new Error(`Unexpected property key ${key}`)
             }
           }
