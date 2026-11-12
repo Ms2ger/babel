@@ -22,6 +22,7 @@ import {
 import transpileNamespace, { getFirstIdentifier } from "./namespace.ts";
 import {
   classPrivateProperty,
+  FunctionParameter,
   isArrayExpression,
   isArrayPattern,
   isAssignmentPattern,
@@ -200,7 +201,6 @@ export default declare((api, opts: Options) => {
       const { scope } = path;
       for (const paramPath of path.get("params")) {
         if (paramPath.isTSParameterProperty()) {
-          // path.node.params = translateFunctionParameters(path.node.params)
           const param = paramPath.node;
           const parameter = param.parameter;
           if (PARSED_PARAMS.has(parameter)) continue;
@@ -282,21 +282,21 @@ export default declare((api, opts: Options) => {
   {
     return origParams.map(translateFunctionParameter);
   }
-  function inferFunctionType(declaration : t.FunctionExpression | t.ObjectMethod): [
+  function inferFunctionType(declaration : t.Function): [
       TSTypeParameterDeclaration | null | undefined,
       (t.ArrayPattern | t.Identifier | t.ObjectPattern | t.RestElement)[], // TODO review - all of those?
-      t.TSTypeAnnotation
+      t.TSTypeAnnotation | null | undefined
   ] {
-    if (!declaration.returnType) {
-      throw new Error(`Explicit return type is required`)
+    if (!declaration.params.every(p => isFunctionParameter(p))) {
+      throw new Error(`Unexpected parameter property`)
     }
     return [
       translateTypeParameters(declaration.typeParameters), // TODO test type parameters
-      translateFunctionParameters(declaration.params),
-      translateTypeAnnotation(declaration.returnType),
+      translateFunctionParameters(declaration.params as FunctionParameter[]),
+      declaration.returnType ? translateTypeAnnotation(declaration.returnType) : declaration.returnType,
     ]
-
   }
+
   enum InferApproach {
     Default,
     Widen,
@@ -317,11 +317,15 @@ export default declare((api, opts: Options) => {
       return typeAnnotation;
     }
     if (isFunctionExpression(declaration)) {
-      inferFunctionType(declaration); // TODO Why did I put this here
+      let [typeParameters, params, returnType] = inferFunctionType(declaration);
+      if (!returnType) {
+        // TODO test
+        throw new Error(`Explicit return type is required`)
+      }
       return t.tsFunctionType(
-        translateTypeParameters(declaration.typeParameters),
-        declaration.params,
-        declaration.returnType,
+        typeParameters,
+        params,
+        returnType,
       )
     }
     // console.log("inferType:", declaration)
@@ -422,6 +426,10 @@ export default declare((api, opts: Options) => {
           let signature;
           if (isObjectMethod(prop)) {
             let [typeParameters, params, returnType] = inferFunctionType(prop)
+            if (!returnType) {
+              // TODO test
+              throw new Error(`Explicit return type is required`)
+            }
             signature = tsMethodSignature(
               key,
               typeParameters,
@@ -872,18 +880,13 @@ export default declare((api, opts: Options) => {
           }
 
         }
-        let typeParameters = t.cloneNode(translateTypeParameters(node.typeParameters));
-        let returnType = node.returnType ? t.cloneNode(translateTypeAnnotation(node.returnType)) : node.returnType;
-        if (!node.params.every(isFunctionParameter)) {
-          throw new Error("Should not have parameter properties at this point")
-        }
-        let params: t.FunctionParameter[] = node.accessibility === "private" ? [] : node.params;
+        let [typeParameters, params, returnType] = inferFunctionType(node);
         // Note: private methods will be replaced again in TSDeclareMethod.
         let newNode: t.TSDeclareMethod = t.tsDeclareMethod(
           t.cloneNode(node.key),
-          typeParameters,
-          translateFunctionParameters(params),
-          returnType
+          t.cloneNode(typeParameters),
+          node.accessibility === "private" ? [] : params,
+          t.cloneNode(returnType)
         );
         newNode.computed = node.computed; // TODO weird things happening with type annotation
         // console.log("~~~ClassMethod: ", node.key, node.accessibility === "private", newNode.returnType)

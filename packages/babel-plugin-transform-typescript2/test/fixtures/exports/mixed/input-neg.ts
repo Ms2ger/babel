@@ -1,8 +1,3 @@
-// Spread
-let j = {};
-export let i = {
-    ...j
-};
 //
 export let i = {
   a(a = 7+1): void {}
@@ -41,3 +36,5 @@ export function x() {
 }
 //
 export const e = [1, 2, 3];
+//
+export const i = { a() { return 7 } } as const;
