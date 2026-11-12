@@ -29,6 +29,7 @@ import {
   isClassPrivateMethod,
   isClassPrivateProperty,
   isExportDeclaration, isExportDefaultDeclaration, isFunctionDeclaration, isFunctionExpression,
+  isFunctionParameter,
   isIdentifier, isImportDefaultSpecifier, isImportExpression, isImportNamespaceSpecifier, isImportSpecifier,
   isNumericLiteral,
   isObjectMember,
@@ -37,7 +38,7 @@ import {
   isPrivateName,
   isReturnStatement,
   isSpreadElement,
-  isStringLiteral, isTSAsExpression, isTSLiteralType, isTSTypeReference, isTypeAnnotation, isTypeParameterDeclaration, isVoidPattern, privateName, stringTypeAnnotation, tsBigIntKeyword, tsBooleanKeyword, tsDeclareFunction,
+  isStringLiteral, isTSAsExpression, isTSLiteralType, isTSParameterProperty, isTSPropertySignature, isTSTypeReference, isTypeAnnotation, isTypeParameterDeclaration, isVoidPattern, privateName, stringTypeAnnotation, tsBigIntKeyword, tsBooleanKeyword, tsDeclareFunction,
   TSLiteralType,
   tsLiteralType,
   tsMethodSignature,
@@ -913,9 +914,12 @@ export default declare((api, opts: Options) => {
         }
         let typeParameters = t.cloneNode(translateTypeParameters(node.typeParameters));
         let returnType = node.returnType ? t.cloneNode(translateTypeAnnotation(node.returnType)) : node.returnType;
-        let params = node.accessibility === "private" ? [] : node.params;
+        if (!node.params.every(isFunctionParameter)) {
+          throw new Error("Should not have parameter properties at this point")
+        }
+        let params: t.FunctionParameter[] = node.accessibility === "private" ? [] : node.params;
         // Note: private methods will be replaced again in TSDeclareMethod.
-        let newNode = t.tsDeclareMethod(
+        let newNode: t.TSDeclareMethod = t.tsDeclareMethod(
           t.cloneNode(node.key),
           typeParameters,
           translateFunctionParameters(params),
