@@ -21,3 +21,4 @@ export declare const f: {
   }];
 };
 export declare const g: "i";
+export declare let h: readonly [undefined, 7];

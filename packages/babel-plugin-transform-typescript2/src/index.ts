@@ -52,6 +52,7 @@ import {
   tsTypeLiteral,
   TSTypeParameter,
   TSTypeParameterDeclaration,
+  tsUndefinedKeyword,
   TypeParameterDeclaration
 } from "@babel/types";
 // import { Identifier } from "../../babel-generator/src/node/parentheses.ts";
@@ -183,23 +184,8 @@ export default declare((api, opts: Options) => {
       } else if (node.abstract) {
         path.remove();
       }
-
-      // if (node.accessibility) node.accessibility = null;
-      // if (node.abstract) node.abstract = null;
-      // if (node.readonly) node.readonly = null;
-      // if (node.optional) node.optional = null;
-      // if (node.typeAnnotation) node.typeAnnotation = null;
-      // if (node.definite) node.definite = null;
-      // if (node.declare) node.declare = null;
-      // if (node.override) node.override = null;
     },
     method({ node }: NodePath<t.ClassMethod | t.ClassPrivateMethod>) {
-      // if (node.accessibility) node.accessibility = null;
-      // if (node.abstract) node.abstract = null;
-      // if (node.optional) node.optional = null;
-      // if (node.override) node.override = null;
-
-      // Rest handled by Function visitor
     },
     constructor(path: NodePath<t.ClassMethod>, classPath: NodePath<t.Class>) {
       // if (path.node.accessibility) path.node.accessibility = null;
@@ -241,20 +227,9 @@ export default declare((api, opts: Options) => {
       classPath.node.body.body.unshift(
         ...generatedProperties
       )
-
-      // injectInitialization(classPath, path, assigns);
     },
   };
 
-  let output: (t.Node | string)[] = [];
-  const dts = (pattern: string, s: string) => {
-    console.log(`***${pattern}*** ${s}`);
-    output.push(s);
-  };
-  const dts2 = (pattern: string, s: t.Node) => {
-    console.log(`***${pattern}*** ${generate(s).code + "\n"}`);
-    output.push(s);
-  };
   function translateTypeParameters(arg: TSTypeParameterDeclaration | TypeParameterDeclaration | null | undefined): TSTypeParameterDeclaration | null | undefined {
     if (isTypeParameterDeclaration(arg)) {
       // TODO
@@ -327,7 +302,7 @@ export default declare((api, opts: Options) => {
     Widen,
     Const,
   }
-  function inferType(declaration, approach: InferApproach = InferApproach.Default): TSType | undefined {
+  function inferType(declaration: t.Statement | t.Expression, approach: InferApproach = InferApproach.Default): TSType | undefined {
     if (!declaration) {
       throw new Error("Missing declaration in inferType()")
     }
@@ -354,7 +329,10 @@ export default declare((api, opts: Options) => {
     if (isArrayExpression(declaration)) {
       let elementTypes: t.TSType[] = [];
       for (const elt of declaration.elements) {
-        let inferred = inferType(elt, approach);
+        if (isSpreadElement(elt)) {
+          throw new Error("Can't infer array type with spread element")
+        }
+        let inferred = elt ? inferType(elt, approach) : tsUndefinedKeyword();
         if (!inferred) {
           throw new Error("Can't infer type for array element");
         }
@@ -390,7 +368,7 @@ export default declare((api, opts: Options) => {
           return arg.type === "NumericLiteral" ? tsNumberKeyword() : tsBigIntKeyword();
         }
         if (op === "+") {
-          return tsLiteralType(t.cloneNode(declaration.argument));
+          return tsLiteralType(t.cloneNode(arg));
         }
         if (op === "-") {
           return tsLiteralType(t.cloneNode(declaration));
@@ -839,10 +817,8 @@ export default declare((api, opts: Options) => {
         }
         let decl = t.variableDeclaration(path.node.kind, vars);
         decl.declare = true;
-        // dts2("VariableDeclaration", decl);
         path.replaceWith(decl);
         seen.add(decl);
-        // path.skip();
       },
 
       VariableDeclarator({ node }) {
@@ -875,23 +851,7 @@ export default declare((api, opts: Options) => {
         throw new Error("This should have been filtered out already");
       },
 
-
-      // function translateTypeParameters(arg: TSTypeParameterDeclaration | TypeParameterDeclaration | null | undefined): TSTypeParameterDeclaration | null | undefined {
-      //   if (isTypeParameterDeclaration(arg)) {
-      //     // TODO
-      //     throw new Error(`Unexpected Flow TypeParameterDeclaration ${arg}`);
-      //   }
-      //   return arg;
-      // }
-      // function translateTypeAnnotation(arg: t.TypeAnnotation | TSTypeAnnotation) : TSTypeAnnotation {
-      //   if (isTypeAnnotation(arg)) {
-      //     // TODO
-      //     throw new Error(`Unexpected Flow TypeAnnotation ${arg}`);
-      //   }
-
       ClassMethod(path) {
-        // console.log(generate(path.node).code)
-        // console.log(path.node)
         let node: t.ClassMethodComputed | t.ClassMethodNonComputed = path.node;
 
         switch (node.kind) {
@@ -934,13 +894,7 @@ export default declare((api, opts: Options) => {
         newNode.access = node.access;
         newNode.accessibility = node.accessibility === "public" ? null : node.accessibility;
 
-        // if (!isDefaultExport) {
-        //   newNode.declare = true;
-        // }
-        // dts2("FunctionDeclaration", newNode);
         path.replaceWith(newNode);
-      // throw 8
-
       },
       StaticBlock(path) {
         path.remove();
@@ -948,11 +902,6 @@ export default declare((api, opts: Options) => {
 
       Class(path) {
         const { node }: { node: typeof path.node & ExtraNodeProps } = path;
-        // let hasPrivate = node.body.body.some(field =>
-        //   isClassPrivateProperty(field) ||
-        //   isClassPrivateMethod(field)
-
-        // );
         let filtered = node.body.body.filter(field =>
           !isClassPrivateProperty(field) &&
           !isClassPrivateMethod(field)
@@ -966,13 +915,6 @@ export default declare((api, opts: Options) => {
             )
           )
         }
-
-        // if (node.typeParameters) node.typeParameters = null;
-
-        // if (node.superTypeArguments) node.superTypeArguments = null;
-
-        // if (node.implements) node.implements = null;
-        // if (node.abstract) node.abstract = null;
 
         // Similar to the logic in `transform-flow-strip-types`, we need to
         // handle `TSParameterProperty` and `ClassProperty` here because the
@@ -1000,14 +942,8 @@ export default declare((api, opts: Options) => {
       },
       Function(path) {
         const { node } = path;
-        // if (node.typeParameters) node.typeParameters = null;
-        // if (node.returnType) node.returnType = null;
         console.log(generate(path.node).code)
         throw 7
-        if (node.body) node.body = null;
-        let newNode = tsDeclareFunction(null, node.typeParameters, node.params, node.returnType)
-        // TODO not unreached
-
         // TODO review
         // const params = node.params;
         // if (params.length > 0 && t.isIdentifier(params[0], { name: "this" })) {
@@ -1030,6 +966,7 @@ export default declare((api, opts: Options) => {
         path: NodePath<t.TSImportEqualsDeclaration>,
         pass,
       ) {
+        // TODO
         const { id, moduleReference } = path.node;
 
         let init: t.Expression;
