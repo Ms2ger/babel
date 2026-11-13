@@ -31,7 +31,7 @@ import {
   isClassMethod,
   isClassPrivateMethod,
   isClassPrivateProperty,
-  isExportDeclaration, isExportDefaultDeclaration, isExpression, isFunctionDeclaration, isFunctionExpression,
+  isExportDeclaration, isExportDefaultDeclaration, isExpression, isFunction, isFunctionDeclaration, isFunctionExpression,
   isFunctionParameter,
   isIdentifier, isImportDefaultSpecifier, isImportExpression, isImportNamespaceSpecifier, isImportSpecifier,
   isMemberExpression,
@@ -280,7 +280,7 @@ export default declare((api, opts: Options) => {
     // throw new Error(`translateFunctionParameter found ${param.type}`)
     return param;
   }
-  function inferFunctionType(declaration: t.Function, path: NodePath): [
+  function inferFunctionType(declaration: t.Function, path: NodePath, approach: InferApproach): [
       TSTypeParameterDeclaration | null | undefined,
       (t.ArrayPattern | t.Identifier | t.ObjectPattern | t.RestElement)[], // TODO review - all of those?
       t.TSTypeAnnotation | null | undefined
@@ -305,12 +305,15 @@ export default declare((api, opts: Options) => {
     if (declaration.returnType) {
       returnType = translateTypeAnnotation(declaration.returnType);
     } else {
-      let ret = getOnlyReturn(declaration);
-      if (ret) {
-        let inferred = inferType(ret, path)
-        console.log("inferred from return statement", inferred)
-        if (inferred) {
-          returnType = tsTypeAnnotation(inferred);
+      // Seems to be unsupported, unsure why.
+      if (!isObjectMethod(declaration) || approach !== InferApproach.Const) {
+        let ret = getOnlyReturn(declaration);
+        if (ret) {
+          let inferred = inferType(ret, path, InferApproach.Widen);
+          console.log("inferred from return statement", inferred)
+          if (inferred) {
+            returnType = tsTypeAnnotation(inferred);
+          }
         }
       }
     }
@@ -327,6 +330,7 @@ export default declare((api, opts: Options) => {
     Const,
   }
   function inferType(declaration: t.Statement | t.Expression, path: NodePath, approach: InferApproach = InferApproach.Default): TSType | undefined {
+    // console.log("inferType:", declaration)
     if (!declaration) {
       throw new Error("Missing declaration in inferType()")
     }
@@ -340,8 +344,8 @@ export default declare((api, opts: Options) => {
       }
       return typeAnnotation;
     }
-    if (isFunctionExpression(declaration) || isFunctionDeclaration(declaration)) { // isFunction?
-      let [typeParameters, params, returnType] = inferFunctionType(declaration, path);
+    if (isFunction(declaration)) {
+      let [typeParameters, params, returnType] = inferFunctionType(declaration, path, approach);
       if (!returnType) {
         // TODO test
         throw new Error(`Explicit return type is required`)
@@ -352,7 +356,6 @@ export default declare((api, opts: Options) => {
         returnType,
       )
     }
-    // console.log("inferType:", declaration)
 
     if (isArrayExpression(declaration)) {
       if (approach !== InferApproach.Const) {
@@ -475,7 +478,7 @@ export default declare((api, opts: Options) => {
           }
           let signature;
           if (isObjectMethod(prop)) {
-            let [typeParameters, params, returnType] = inferFunctionType(prop, path)
+            let [typeParameters, params, returnType] = inferFunctionType(prop, path, approach)
             if (!returnType) {
               // TODO test
               throw new Error(`Explicit return type is required`)
@@ -759,7 +762,7 @@ export default declare((api, opts: Options) => {
           }
           console.log("    -- not skipping")
           // dts("FunctionDeclaration", `function ${node.id?.name ?? ""}(): `);
-          let [typeParameters, params, returnType] = inferFunctionType(node, path);
+          let [typeParameters, params, returnType] = inferFunctionType(node, path, InferApproach.Default);
           if (!returnType) {
             throw new Error(`Must declare the return type of function ${node.id?.name ?? ""}`);
           }
@@ -848,7 +851,6 @@ export default declare((api, opts: Options) => {
               throw new Error(`Type annotation required for ${path.node.kind}`);
             }
             let inferred = inferType(
-              // TODO: declarator.init not present
               declarator.init,
               path,
               path.node.kind === "const" ? InferApproach.Default : InferApproach.Widen
@@ -918,26 +920,10 @@ export default declare((api, opts: Options) => {
 
       ClassMethod(path) {
         let node: t.ClassMethodComputed | t.ClassMethodNonComputed = path.node;
-
-        switch (node.kind) {
-          case "method": {
-            if (!node.returnType && node.accessibility !== "private") {
-              throw new Error(`Must declare the return type of method`);
-            }
-            break;
-          }
-          case "constructor": {
-            break;
-          }
-          case "get": {
-            break;
-          }
-          case "set": {
-            break;
-          }
-
+        let [typeParameters, params, returnType] = inferFunctionType(node, path, InferApproach.Default);
+        if (node.kind === "method" && !returnType && node.accessibility !== "private") {
+          throw new Error(`Must declare the return type of method`);
         }
-        let [typeParameters, params, returnType] = inferFunctionType(node);
         // Note: private methods will be replaced again in TSDeclareMethod.
         let newNode: t.TSDeclareMethod = t.tsDeclareMethod(
           t.cloneNode(node.key),

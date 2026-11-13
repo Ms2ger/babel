@@ -115,6 +115,9 @@ export declare class C5 {
 export declare class C6 {
   constructor(a?: string);
 }
+export declare class C7 {
+  a(): string;
+}
 export declare function j(): {
   a: string;
 };
