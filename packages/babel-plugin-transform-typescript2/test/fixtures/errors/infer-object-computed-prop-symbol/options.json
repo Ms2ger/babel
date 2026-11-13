@@ -1,5 +1,5 @@
 {
   "sourceType": "module",
   "plugins": ["transform-typescript2"],
-  "throws": "..."
+  "throws": "Unexpected property key Symbol[\"hasInstance\"]"
 }

@@ -29,7 +29,7 @@ import {
   isClassMethod,
   isClassPrivateMethod,
   isClassPrivateProperty,
-  isExportDeclaration, isExportDefaultDeclaration, isFunctionDeclaration, isFunctionExpression,
+  isExportDeclaration, isExportDefaultDeclaration, isExpression, isFunctionDeclaration, isFunctionExpression,
   isFunctionParameter,
   isIdentifier, isImportDefaultSpecifier, isImportExpression, isImportNamespaceSpecifier, isImportSpecifier,
   isMemberExpression,
@@ -407,23 +407,24 @@ export default declare((api, opts: Options) => {
         return tsLiteralType(t.cloneNode(declaration));
       }
       case "ObjectExpression": {
-          function isReferenceToGlobalSymbol(key: t.Expression) {
+          // TODO rm PrivateName
+          function referenceToGlobalSymbol(key: t.Expression): t.Expression | t.PrivateName | undefined {
             if (!isMemberExpression(key)) {
-              return false;
+              return undefined;
             }
             if (isIdentifier(key.object) && key.object.name === "Symbol") {
               // TODO: check this is a reference to the real Symbol
               // TODO: check the property is valid
-              return true;
+              return key.property;
             }
             if (isMemberExpression(key.object) &&
                 isIdentifier(key.object.object) && key.object.object.name === "globalThis" &&
                 isIdentifier(key.object.property) && key.object.property.name === "Symbol") {
               // TODO: check this is a reference to the real Symbol
               // TODO: check the property is valid
-              return true;
+              return key.property;
             }
-            return false;
+            return undefined;
           }
           let members = declaration.properties.map((prop: t.ObjectProperty | t.ObjectMethod | t.SpreadElement) => {
           // TODO factor out
@@ -434,13 +435,17 @@ export default declare((api, opts: Options) => {
             throw new Error(`Unexpected private name`);
           }
           let key = t.cloneNode(prop.key);
+          let symbol;
           if (prop.computed) {
             if (isStringLiteral(key)) {
               key = t.identifier(key.value);
             } else if (isNumericLiteral(key)) {
               // Fine
-            } else if (isReferenceToGlobalSymbol(key)) {
+            } else if ((symbol = referenceToGlobalSymbol(key))) {
               // TODO: ts supports keys like `[Symbol.hasInstance]`
+              if (!isIdentifier(symbol)) {
+                throw new Error(`Unexpected property key ${generate(key).code}`)
+              }
             } else {
               throw new Error(`Unexpected property key ${key}`)
             }
