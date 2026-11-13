@@ -35,6 +35,7 @@ import {
   isFunctionParameter,
   isIdentifier, isImportDefaultSpecifier, isImportExpression, isImportNamespaceSpecifier, isImportSpecifier,
   isMemberExpression,
+  isNode,
   isNumericLiteral,
   isObjectMember,
   isObjectMethod,
@@ -208,7 +209,7 @@ export default declare((api, opts: Options) => {
           const parameter = param.parameter;
           if (PARSED_PARAMS.has(parameter)) continue;
           PARSED_PARAMS.add(parameter);
-          let id = translateFunctionParameter(parameter);
+          let id = translateFunctionParameter(parameter, path);
           if (!isIdentifier(id)) {
             throw paramPath.buildCodeFrameError(
               "Parameter properties can not be destructuring patterns.",
@@ -518,7 +519,11 @@ export default declare((api, opts: Options) => {
       }
       case "Identifier": {
         if (declaration.name === "undefined") {
+          let check = path.scope.getBinding("undefined");
           // TODO check it's real: You could use scope.hasBinding passing `noGlobals: true` to it
+          console.log(`Found identifier undefined, binding=`, check)
+          console.log("all bindings:", path.scope.getAllBindings())
+          // if (!check)
           return tsUndefinedKeyword();
         }
         break;
@@ -529,7 +534,7 @@ export default declare((api, opts: Options) => {
     }
 
   }
-  function isReachableFromExport(id: string | undefined, scope) : boolean {
+  function isReachableFromExport(id: string | undefined, scope: Scope) : boolean {
     console.log(`isReachableFromExport(${id})`)
     // console.log(scope)
     if (!id) {
@@ -543,6 +548,10 @@ export default declare((api, opts: Options) => {
     }
     // console.log(`binding: referencePaths for ${id} are`, binding?.referencePaths)
     for (const ref of binding.referencePaths) {
+      if (!isNode(ref.container)) {
+        // TODO review
+        continue;
+      }
       if (ref.container.type === "ExportSpecifier") {
         return true;
       }
