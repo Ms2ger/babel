@@ -263,6 +263,11 @@ async function run(task: Test) {
     stderr,
   } = task;
 
+  // internal api doesn't have this option but it's best not to pollute
+  // the options object with useless options
+  let shouldThrow = opts.throws;
+  delete opts.throws;
+
   // todo(flow->ts) add proper return type (added any, because empty object is inferred)
   function getOpts(self: TestFile): any {
     const newOpts = {
@@ -329,11 +334,10 @@ async function run(task: Test) {
     });
 
     checkDuplicateNodes(result.ast!);
-    if (!ignoreOutput) {
+    if (!ignoreOutput && !shouldThrow) {
       if (
         !expectedCode &&
         outputCode &&
-        !opts.throws &&
         fs.statSync(path.dirname(expected.loc!)).isDirectory() &&
         !process.env.CI
       ) {
@@ -435,7 +439,7 @@ function validateFile(
     throw new Error(
       `Expected ${expectedLoc} to match transform output.\n` +
         `To autogenerate a passing version of this file, delete ` +
-        ` the file and re-run the tests.\n\n` +
+        `the file and re-run the tests.\n\n` +
         `Diff:\n\n${diff(expectedCode, actualCode, { expand: false })}`,
     );
   }
@@ -532,10 +536,6 @@ export default function (
 
             const throwMsg = task.options.throws;
             if (throwMsg) {
-              // internal api doesn't have this option but it's best not to pollute
-              // the options object with useless options
-              delete task.options.throws;
-
               await assert.rejects(runTask, function (err: Error) {
                 assert.ok(
                   throwMsg === true || err.message.includes(throwMsg),
