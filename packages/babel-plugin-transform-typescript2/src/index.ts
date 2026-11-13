@@ -407,26 +407,26 @@ export default declare((api, opts: Options) => {
         return tsLiteralType(t.cloneNode(declaration));
       }
       case "ObjectExpression": {
-          // TODO rm PrivateName
-          function referenceToGlobalSymbol(key: t.Expression): t.Expression | t.PrivateName | undefined {
-            if (!isMemberExpression(key)) {
-              return undefined;
-            }
-            if (isIdentifier(key.object) && key.object.name === "Symbol") {
-              // TODO: check this is a reference to the real Symbol
-              // TODO: check the property is valid
-              return key.property;
-            }
-            if (isMemberExpression(key.object) &&
-                isIdentifier(key.object.object) && key.object.object.name === "globalThis" &&
-                isIdentifier(key.object.property) && key.object.property.name === "Symbol") {
-              // TODO: check this is a reference to the real Symbol
-              // TODO: check the property is valid
-              return key.property;
-            }
+        // TODO rm PrivateName
+        function referenceToGlobalSymbol(key: t.Expression): t.Expression | t.PrivateName | undefined {
+          if (!isMemberExpression(key)) {
             return undefined;
           }
-          let members = declaration.properties.map((prop: t.ObjectProperty | t.ObjectMethod | t.SpreadElement) => {
+          if (isIdentifier(key.object) && key.object.name === "Symbol") {
+            // TODO: check this is a reference to the real Symbol
+            // TODO: check the property is valid
+            return key.property;
+          }
+          if (isMemberExpression(key.object) &&
+              isIdentifier(key.object.object) && key.object.object.name === "globalThis" &&
+              isIdentifier(key.object.property) && key.object.property.name === "Symbol") {
+            // TODO: check this is a reference to the real Symbol
+            // TODO: check the property is valid
+            return key.property;
+          }
+          return undefined;
+        }
+        let members = declaration.properties.map((prop: t.ObjectProperty | t.ObjectMethod | t.SpreadElement) => {
           // TODO factor out
           if (isSpreadElement(prop)) {
             throw new Error(`Object with spread assignment not supported`);
