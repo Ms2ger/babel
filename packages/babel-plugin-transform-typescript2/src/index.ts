@@ -25,7 +25,9 @@ import {
   FunctionParameter,
   isArrayExpression,
   isArrayPattern,
+  isArrowFunctionExpression,
   isAssignmentPattern,
+  isBlockStatement,
   isClassMethod,
   isClassPrivateMethod,
   isClassPrivateProperty,
@@ -245,7 +247,7 @@ export default declare((api, opts: Options) => {
     }
     return arg;
   }
-  function translateFunctionParameter(param: t.FunctionParameter):
+  function translateFunctionParameter(param: t.FunctionParameter, path: NodePath):
     (t.ArrayPattern | t.Identifier | t.ObjectPattern | t.RestElement) // TODO review - all of those?
   {
     if (isVoidPattern(param)) {
@@ -259,7 +261,7 @@ export default declare((api, opts: Options) => {
       if (param.left.typeAnnotation) {
         typeAnnotation = translateTypeAnnotation(param.left.typeAnnotation);
       } else {
-        let inferred = inferType(param.right, InferApproach.Widen);
+        let inferred = inferType(param.right, path, InferApproach.Widen);
         if (!inferred) {
           throw new Error("Could not infer type from RHS of assignment pattern");
         }
@@ -278,23 +280,44 @@ export default declare((api, opts: Options) => {
     // throw new Error(`translateFunctionParameter found ${param.type}`)
     return param;
   }
-  function translateFunctionParameters(origParams: t.FunctionParameter[]):
-    (t.ArrayPattern | t.Identifier | t.ObjectPattern | t.RestElement)[] // TODO review - all of those?
-  {
-    return origParams.map(translateFunctionParameter);
-  }
-  function inferFunctionType(declaration : t.Function): [
+  function inferFunctionType(declaration: t.Function, path: NodePath): [
       TSTypeParameterDeclaration | null | undefined,
       (t.ArrayPattern | t.Identifier | t.ObjectPattern | t.RestElement)[], // TODO review - all of those?
       t.TSTypeAnnotation | null | undefined
   ] {
+    function getOnlyReturn(declaration: t.Function): t.Expression | undefined {
+      let type: "FunctionDeclaration" | "FunctionExpression" | "ObjectMethod" | "ArrowFunctionExpression" | "ClassMethod" | "ClassPrivateMethod" = declaration.type
+      if (isExpression(declaration.body)) {
+        if (!isArrowFunctionExpression(declaration)) {
+          throw new Error("How did this get here?")
+        }
+        return declaration.body;
+      }
+      let returns: t.ReturnStatement[] = declaration.body.body.filter(isReturnStatement);
+      if (returns.length === 1) {
+        return returns[0].argument ?? undefined;
+      }
+    }
     if (!declaration.params.every(p => isFunctionParameter(p))) {
       throw new Error(`Unexpected parameter property`)
     }
+    let returnType;
+    if (declaration.returnType) {
+      returnType = translateTypeAnnotation(declaration.returnType);
+    } else {
+      let ret = getOnlyReturn(declaration);
+      if (ret) {
+        let inferred = inferType(ret, path)
+        console.log("inferred from return statement", inferred)
+        if (inferred) {
+          returnType = tsTypeAnnotation(inferred);
+        }
+      }
+    }
     return [
       translateTypeParameters(declaration.typeParameters), // TODO test type parameters
-      translateFunctionParameters(declaration.params as FunctionParameter[]),
-      declaration.returnType ? translateTypeAnnotation(declaration.returnType) : declaration.returnType,
+      declaration.params.map(p => translateFunctionParameter(p as FunctionParameter, path)),
+      returnType,
     ]
   }
 
@@ -303,22 +326,22 @@ export default declare((api, opts: Options) => {
     Widen,
     Const,
   }
-  function inferType(declaration: t.Statement | t.Expression, approach: InferApproach = InferApproach.Default): TSType | undefined {
+  function inferType(declaration: t.Statement | t.Expression, path: NodePath, approach: InferApproach = InferApproach.Default): TSType | undefined {
     if (!declaration) {
       throw new Error("Missing declaration in inferType()")
     }
     if (isTSAsExpression(declaration)) {
       let typeAnnotation = declaration.typeAnnotation;
       if (isTSTypeReference(typeAnnotation) && typeAnnotation.typeName.name === "const") {
-        let inferred = inferType(declaration.expression, InferApproach.Const);
+        let inferred = inferType(declaration.expression, path, InferApproach.Const);
         console.log(inferred);
         // throw 1
         return inferred;
       }
       return typeAnnotation;
     }
-    if (isFunctionExpression(declaration)) {
-      let [typeParameters, params, returnType] = inferFunctionType(declaration);
+    if (isFunctionExpression(declaration) || isFunctionDeclaration(declaration)) { // isFunction?
+      let [typeParameters, params, returnType] = inferFunctionType(declaration, path);
       if (!returnType) {
         // TODO test
         throw new Error(`Explicit return type is required`)
@@ -340,7 +363,7 @@ export default declare((api, opts: Options) => {
         if (isSpreadElement(elt)) {
           throw new Error("Can't infer array type with spread element")
         }
-        let inferred = elt ? inferType(elt, approach) : tsUndefinedKeyword();
+        let inferred = elt ? inferType(elt, path, approach) : tsUndefinedKeyword();
         if (!inferred) {
           throw new Error("Can't infer type for array element");
         }
@@ -452,7 +475,7 @@ export default declare((api, opts: Options) => {
           }
           let signature;
           if (isObjectMethod(prop)) {
-            let [typeParameters, params, returnType] = inferFunctionType(prop)
+            let [typeParameters, params, returnType] = inferFunctionType(prop, path)
             if (!returnType) {
               // TODO test
               throw new Error(`Explicit return type is required`)
@@ -471,6 +494,7 @@ export default declare((api, opts: Options) => {
             }
             inferred = inferType(
               prop.value,
+              path,
               approach === InferApproach.Const ? InferApproach.Const : InferApproach.Widen // XXX check approach
             );
             if (!inferred) {
@@ -488,6 +512,13 @@ export default declare((api, opts: Options) => {
         })
         let literal = tsTypeLiteral(members);
         return literal;
+      }
+      case "Identifier": {
+        if (declaration.name === "undefined") {
+          // TODO check it's real: You could use scope.hasBinding passing `noGlobals: true` to it
+          return tsUndefinedKeyword();
+        }
+        break;
       }
       default: {
         break;
@@ -705,7 +736,7 @@ export default declare((api, opts: Options) => {
           }
           let {node} = path;
           if (!isFunctionDeclaration(node.declaration)) {
-            let inferred = inferType(node.declaration);
+            let inferred = inferType(node.declaration, path);
             if (inferred && isTSLiteralType(inferred)) {
               addExplicitVariable(inferred);
             }
@@ -728,25 +759,16 @@ export default declare((api, opts: Options) => {
           }
           console.log("    -- not skipping")
           // dts("FunctionDeclaration", `function ${node.id?.name ?? ""}(): `);
-          if (!node.returnType) {
-            let returns: t.ReturnStatement[] = node.body.body.filter(isReturnStatement);
-            if (returns.length === 1) {
-              let inferred = inferType(returns[0].argument)
-              console.log("inferred from return statement", inferred)
-              if (inferred) {
-                node.returnType = tsTypeAnnotation(inferred);
-              }
-
-            }
-            if (!node.returnType) {
-              throw new Error(`Must declare the return type of function ${node.id?.name ?? ""}`);
-            }
+          let [typeParameters, params, returnType] = inferFunctionType(node, path);
+          if (!returnType) {
+            throw new Error(`Must declare the return type of function ${node.id?.name ?? ""}`);
           }
           let newNode = t.tsDeclareFunction(
             t.cloneNode(node.id),
-            t.cloneNode(translateTypeParameters(node.typeParameters)),
-            node.params,
-            t.cloneNode(translateTypeAnnotation(node.returnType)));
+            t.cloneNode(typeParameters),
+            params,
+            t.cloneNode(returnType)
+          );
           if (!isDefaultExport) {
             newNode.declare = true;
           }
@@ -822,7 +844,15 @@ export default declare((api, opts: Options) => {
             throw undefined;
           }
           if (!declarator.id.typeAnnotation) {
-            let inferred = inferType(declarator.init, path.node.kind === "const" ? InferApproach.Default : InferApproach.Widen);
+            if (!declarator.init) {
+              throw new Error(`Type annotation required for ${path.node.kind}`);
+            }
+            let inferred = inferType(
+              // TODO: declarator.init not present
+              declarator.init,
+              path,
+              path.node.kind === "const" ? InferApproach.Default : InferApproach.Widen
+            );
             if (!inferred) {
               inferred = tsNeverKeyword();
               throw 12
