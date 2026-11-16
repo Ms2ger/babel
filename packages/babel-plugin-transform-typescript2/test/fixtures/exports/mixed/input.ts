@@ -112,6 +112,10 @@ export let i = {
   c(p = function(): void {}): void { p() },
   d(p: any = function(): void {}): void {},
 }
+export let m = { [1]: 1 }
+export let mp = { [+1]: 1 }
+export let mm = { [-1]: 1 }
+
 export class C4 {
   static a: string;
   static {
@@ -140,3 +144,6 @@ export function k<T>() {
 }
 
 export let e0!: number
+
+var l = function(a = 7) : string { return "" }
+export { l };

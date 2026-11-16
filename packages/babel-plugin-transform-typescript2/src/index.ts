@@ -43,7 +43,7 @@ import {
   isPrivateName,
   isReturnStatement,
   isSpreadElement,
-  isStringLiteral, isTSAsExpression, isTSLiteralType, isTSParameterProperty, isTSPropertySignature, isTSTypeReference, isTypeAnnotation, isTypeParameterDeclaration, isVoidPattern, privateName, stringTypeAnnotation, tsBigIntKeyword, tsBooleanKeyword, tsDeclareFunction,
+  isStringLiteral, isTSAsExpression, isTSLiteralType, isTSParameterProperty, isTSPropertySignature, isTSTypeReference, isTypeAnnotation, isTypeParameterDeclaration, isUnaryExpression, isVoidPattern, privateName, stringTypeAnnotation, tsBigIntKeyword, tsBooleanKeyword, tsDeclareFunction,
   TSLiteralType,
   tsLiteralType,
   tsMethodSignature,
@@ -463,18 +463,37 @@ export default declare((api, opts: Options) => {
           }
           let key = t.cloneNode(prop.key);
           let symbol;
+          let computed = false;
           if (prop.computed) {
             if (isStringLiteral(key)) {
               key = t.identifier(key.value);
             } else if (isNumericLiteral(key)) {
               // Fine
+            } else if (isUnaryExpression(key)) {
+              // TODO compare similar code below
+              const {operator: op, argument: arg} = key;
+              // These seem to be the only cases ts supports.
+              if (op !== "+" && op !== "-") {
+                throw new Error(`Unary operator ${op} not supported`);
+              }
+              if (arg.type !== "NumericLiteral") {
+                throw new Error(`Unary operator ${op} not supported with argument ${arg}`);
+              }
+              if (op === "+") {
+                // Drop the `+` entirely
+                key = t.cloneNode(arg);
+              }
+              if (op === "-") {
+                key = t.cloneNode(key);
+                computed = true
+              }
             } else if ((symbol = referenceToGlobalSymbol(key))) {
               // TODO: ts supports keys like `[Symbol.hasInstance]`
               if (!isIdentifier(symbol)) {
                 throw new Error(`Unexpected property key ${generate(key).code}`)
               }
             } else {
-              throw new Error(`Unexpected property key ${key}`)
+              throw path.buildCodeFrameError(`Unexpected property key ${generate(key).code}`)
             }
           }
           let signature;
@@ -512,6 +531,7 @@ export default declare((api, opts: Options) => {
               signature.readonly = true;
             }
           }
+          signature.computed = computed;
           return signature;
         })
         let literal = tsTypeLiteral(members);

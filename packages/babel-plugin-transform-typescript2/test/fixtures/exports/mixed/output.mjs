@@ -105,6 +105,15 @@ export declare let i: {
   c(p?: () => void): void;
   d(p?: any): void;
 };
+export declare let m: {
+  1: number;
+};
+export declare let mp: {
+  1: number;
+};
+export declare let mm: {
+  [-1]: number;
+};
 export declare class C4 {
   static a: string;
 }
@@ -127,3 +136,5 @@ export declare function k<T>(): {
   }): void;
 };
 export declare let e0: number;
+declare var l: (a?: number) => string;
+export { l };
