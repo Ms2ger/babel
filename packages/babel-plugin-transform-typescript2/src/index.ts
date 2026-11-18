@@ -59,6 +59,7 @@ import {
   TSTypeParameter,
   TSTypeParameterDeclaration,
   tsUndefinedKeyword,
+  tsUnionType,
   TypeParameterDeclaration
 } from "@babel/types";
 // import { Identifier } from "../../babel-generator/src/node/parentheses.ts";
@@ -336,6 +337,7 @@ export default declare((api, opts: Options) => {
     if (!declaration) {
       throw new Error("Missing declaration in inferType()")
     }
+    // TODO: similar code elsewhere
     if (isTSAsExpression(declaration)) {
       let typeAnnotation = declaration.typeAnnotation;
       if (isTSTypeReference(typeAnnotation) && typeAnnotation.typeName.name === "const") {
@@ -951,6 +953,15 @@ export default declare((api, opts: Options) => {
             path.node.readonly ? InferApproach.Default : InferApproach.Widen);
           if (!inferred) {
             throw path.buildCodeFrameError("Found class property without type annotation")
+          }
+          if (path.node.optional && !path.node.readonly && !isTSLiteralType(inferred)) {
+            // TODO: similar code elsewhere
+            if (isTSAsExpression(path.node.value)) {
+              let typeAnnotation = path.node.value.typeAnnotation;
+              if (isTSTypeReference(typeAnnotation) && typeAnnotation.typeName.name === "const") {
+                inferred = tsUnionType([inferred, tsUndefinedKeyword()]);
+              }
+            }
           }
           path.node.typeAnnotation = t.tsTypeAnnotation(inferred);
         }
