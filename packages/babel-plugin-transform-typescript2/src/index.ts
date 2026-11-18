@@ -34,6 +34,7 @@ import {
   isExportDeclaration, isExportDefaultDeclaration, isExpression, isFunction, isFunctionDeclaration, isFunctionExpression,
   isFunctionParameter,
   isIdentifier, isImportDefaultSpecifier, isImportExpression, isImportNamespaceSpecifier, isImportSpecifier,
+  isLiteral,
   isMemberExpression,
   isNode,
   isNumericLiteral,
@@ -930,12 +931,30 @@ export default declare((api, opts: Options) => {
         node.declare = true;
       },
       ClassProperty(path) {
-        path.node.value = null;
         if (path.node.accessibility === "private") {
           path.node.typeAnnotation = null;
-        } else if (path.node.accessibility === "public") {
+          path.node.value = null;
+          return;
+        }
+        if (path.node.accessibility === "public") {
           path.node.accessibility = null;
         }
+        if (!path.node.typeAnnotation) {
+          if (!path.node.value) {
+            throw path.buildCodeFrameError("Found class property without type annotation or value")
+          }
+          // TODO write tests for more kinds of literals
+          if (isLiteral(path.node.value) && path.node.readonly) {
+            return;
+          }
+          let inferred = inferType(path.node.value, path,
+            path.node.readonly ? InferApproach.Default : InferApproach.Widen);
+          if (!inferred) {
+            throw path.buildCodeFrameError("Found class property without type annotation")
+          }
+          path.node.typeAnnotation = t.tsTypeAnnotation(inferred);
+        }
+        path.node.value = null;
       },
       ClassPrivateProperty(path) {
         // console.log("ClassPrivateProperty", path.node)
