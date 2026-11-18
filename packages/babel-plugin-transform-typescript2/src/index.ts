@@ -44,11 +44,12 @@ import {
   isPrivateName,
   isReturnStatement,
   isSpreadElement,
-  isStringLiteral, isTSAsExpression, isTSLiteralType, isTSParameterProperty, isTSPropertySignature, isTSTypeReference, isTypeAnnotation, isTypeParameterDeclaration, isUnaryExpression, isVoidPattern, privateName, stringTypeAnnotation, tsBigIntKeyword, tsBooleanKeyword, tsDeclareFunction,
+  isStringLiteral, isTSAsExpression, isTSLiteralType, isTSParameterProperty, isTSPropertySignature, isTSTypeReference, isTSUndefinedKeyword, isTypeAnnotation, isTypeParameterDeclaration, isUnaryExpression, isVoidPattern, privateName, stringTypeAnnotation, tsBigIntKeyword, tsBooleanKeyword, tsDeclareFunction,
   TSLiteralType,
   tsLiteralType,
   tsMethodSignature,
   tsNeverKeyword,
+  tsNullKeyword,
   tsNumberKeyword,
   tsPropertySignature,
   tsStringKeyword,
@@ -435,6 +436,9 @@ export default declare((api, opts: Options) => {
           return tsBooleanKeyword();
         }
         return tsLiteralType(t.cloneNode(declaration));
+      }
+      case "NullLiteral": {
+        return tsNullKeyword();
       }
       case "ObjectExpression": {
         // TODO rm PrivateName
@@ -954,14 +958,15 @@ export default declare((api, opts: Options) => {
           if (!inferred) {
             throw path.buildCodeFrameError("Found class property without type annotation")
           }
-          if (path.node.optional && !path.node.readonly && !isTSLiteralType(inferred)) {
+          if (path.node.optional && !path.node.readonly && !isTSLiteralType(inferred) &&
+            !isTSUndefinedKeyword(inferred)) {
             // TODO: similar code elsewhere
-            if (isTSAsExpression(path.node.value)) {
-              let typeAnnotation = path.node.value.typeAnnotation;
-              if (isTSTypeReference(typeAnnotation) && typeAnnotation.typeName.name === "const") {
+            // if (isTSAsExpression(path.node.value)) {
+            //   let typeAnnotation = path.node.value.typeAnnotation;
+            //   if (isTSTypeReference(typeAnnotation) && typeAnnotation.typeName.name === "const") {
                 inferred = tsUnionType([inferred, tsUndefinedKeyword()]);
-              }
-            }
+              // }
+            // }
           }
           path.node.typeAnnotation = t.tsTypeAnnotation(inferred);
         }
