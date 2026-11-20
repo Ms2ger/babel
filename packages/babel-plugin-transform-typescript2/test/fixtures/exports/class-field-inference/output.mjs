@@ -35,15 +35,26 @@ export declare class C4 {
   g?: undefined;
 }
 export declare class C5 {
+  a: "";
+  b: 1;
+  d: true;
+  e: "";
+  f: 1n;
+}
+export declare class C6 {
   a?: "";
   b?: 1;
   d?: true;
   e?: "";
   f?: 1n;
 }
+export declare class C7 {
+  a: readonly [2];
+  b?: readonly [2] | undefined;
+  readonly c: readonly [2];
+  readonly d?: readonly [2] | undefined;
+}
 export declare class C {
-  f?: readonly [2] | undefined;
-  g: readonly [2];
   h: {
     readonly a: 1;
   };

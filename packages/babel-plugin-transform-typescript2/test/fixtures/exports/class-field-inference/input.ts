@@ -35,16 +35,26 @@ export class C4 {
   g? = undefined;
 }
 export class C5 {
+  a = "" as const;
+  b = 1 as const;
+  d = true as const;
+  e = `` as const;
+  f = 1n as const;
+}
+export class C6 {
   a? = "" as const;
   b? = 1 as const;
   d? = true as const;
   e? = `` as const;
   f? = 1n as const;
 }
-
+export class C7 {
+  a = [2] as const;
+  b? = [2] as const;
+  readonly c = [2] as const;
+  readonly d? = [2] as const;
+};
 export class C {
-  f? = [2] as const;
-  g = [2] as const;
   h = {a:1} as const;
   readonly i = {a:1};
   readonly j = {a:1} as const;
