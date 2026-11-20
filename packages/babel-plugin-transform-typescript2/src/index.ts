@@ -37,6 +37,7 @@ import {
   isLiteral,
   isMemberExpression,
   isNode,
+  isNullLiteral,
   isNumericLiteral,
   isObjectExpression,
   isObjectMember,
@@ -45,7 +46,7 @@ import {
   isPrivateName,
   isReturnStatement,
   isSpreadElement,
-  isStringLiteral, isTSAsExpression, isTSFunctionType, isTSLiteralType, isTSParameterProperty, isTSPropertySignature, isTSTypeReference, isTSUndefinedKeyword, isTypeAnnotation, isTypeParameterDeclaration, isUnaryExpression, isVoidPattern, privateName, stringTypeAnnotation, tsBigIntKeyword, tsBooleanKeyword, tsDeclareFunction,
+  isStringLiteral, isTemplateLiteral, isTSAsExpression, isTSFunctionType, isTSLiteralType, isTSParameterProperty, isTSPropertySignature, isTSTypeReference, isTSUndefinedKeyword, isTypeAnnotation, isTypeParameterDeclaration, isUnaryExpression, isVoidPattern, privateName, stringLiteral, stringTypeAnnotation, tsBigIntKeyword, tsBooleanKeyword, tsDeclareFunction,
   TSLiteralType,
   tsLiteralType,
   tsMethodSignature,
@@ -148,6 +149,14 @@ type ExtraNodeProps = {
   optional?: unknown;
   override?: unknown;
 };
+
+function translateTemplateLiteral(e: t.TemplateLiteral) : t.StringLiteral {
+  if (e.expressions.length) {
+    throw new Error(`Template literal with expressions not supported`)
+  }
+  // TODO: any edge cases?
+  return stringLiteral(e.quasis[0].value.raw);
+}
 
 export default declare((api, opts: Options) => {
   // `@babel/core` and `@babel/types` are bundled in some downstream libraries.
@@ -386,14 +395,11 @@ export default declare((api, opts: Options) => {
 
     switch (declaration.type) {
       case "TemplateLiteral": {
-        if (declaration.expressions.length) {
-          throw new Error(`Template literal with expressions not supported`)
-        }
-        // TODO: any edge cases?
+        let string = translateTemplateLiteral(declaration);
         if (approach === InferApproach.Widen) {
           return tsStringKeyword();
         }
-        return tsLiteralType(t.stringLiteral(declaration.quasis[0].value.raw));
+        return tsLiteralType(string);
       }
       case "UnaryExpression": {
         const {operator: op, argument: arg} = declaration;
@@ -893,8 +899,7 @@ export default declare((api, opts: Options) => {
               path.node.kind === "const" ? InferApproach.Default : InferApproach.Widen
             );
             if (!inferred) {
-              inferred = tsNeverKeyword();
-              throw 12
+              throw path.buildCodeFrameError(`Type annotation required for ${path.node.kind}`);
             }
             // TODO clean up
             if (isTSAsExpression(declarator.init) && isTSTypeReference(declarator.init.typeAnnotation) && declarator.init.typeAnnotation.typeName.name === "const") {
@@ -950,17 +955,19 @@ export default declare((api, opts: Options) => {
           if (!path.node.value) {
             throw path.buildCodeFrameError("Found class property without type annotation or value")
           }
-          // TODO write tests for more kinds of literals
-          if (isLiteral(path.node.value) && path.node.readonly) {
+          let value = path.node.value;
+          if (path.node.readonly && !path.node.optional && isLiteral(value) && !isNullLiteral(value)) {
+            if (isTemplateLiteral(value)) {
+              path.node.value = value = translateTemplateLiteral(value);
+            }
             return;
           }
-          let inferred = inferType(path.node.value, path,
+          let inferred = inferType(value, path,
             path.node.readonly ? InferApproach.Default : InferApproach.Widen);
           if (!inferred) {
             throw path.buildCodeFrameError("Found class property without type annotation")
           }
           if (path.node.optional) {
-            let value = path.node.value;
             if (isTSAsExpression(value)) {
               let typeAnnotation = value.typeAnnotation;
               // TODO: similar code elsewhere
@@ -971,7 +978,7 @@ export default declare((api, opts: Options) => {
               }
             } else {
               // This is pretty ad-hoc; functions were the only case I found.
-              if (!isTSUndefinedKeyword(inferred) && !isTSFunctionType(inferred)) {
+              if (!isTSUndefinedKeyword(inferred) && !isTSFunctionType(inferred) && !isTemplateLiteral(value)) {
                 inferred = tsUnionType([inferred, tsUndefinedKeyword()]);
               }
             }
