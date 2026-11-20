@@ -6,6 +6,7 @@ export declare class C1 {
   readonly e = "";
   readonly f = 1n;
   readonly g: undefined;
+  readonly h: () => void;
 }
 export declare class C2 {
   a: string;
@@ -15,6 +16,7 @@ export declare class C2 {
   e: string;
   f: bigint;
   g: undefined;
+  h: () => void;
 }
 export declare class C3 {
   readonly a?: "" | undefined;
@@ -24,6 +26,7 @@ export declare class C3 {
   readonly e?: "";
   readonly f?: 1n | undefined;
   readonly g?: undefined;
+  readonly h?: () => void;
 }
 export declare class C4 {
   a?: string | undefined;
@@ -33,6 +36,7 @@ export declare class C4 {
   e?: string;
   f?: bigint | undefined;
   g?: undefined;
+  h?: () => void;
 }
 export declare class C5 {
   a: "";
@@ -42,18 +46,19 @@ export declare class C5 {
   f: 1n;
 }
 export declare class C6 {
-  a: "";
-  b: 1;
-  d: true;
-  e: "";
-  f: 1n;
-}
-export declare class C7 {
   a?: "";
   b?: 1;
   d?: true;
   e?: "";
   f?: 1n;
+}
+export declare class C7 {
+  a: "";
+  b: 1;
+  d: true;
+  e: "";
+  f: 1n;
+  h: () => void;
 }
 export declare class C8 {
   a?: "";
@@ -61,6 +66,7 @@ export declare class C8 {
   d?: true;
   e?: "";
   f?: 1n;
+  h?: () => void;
 }
 export declare class C9 {
   a: readonly [2];

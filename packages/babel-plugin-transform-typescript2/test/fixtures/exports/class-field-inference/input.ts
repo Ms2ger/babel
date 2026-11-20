@@ -6,6 +6,7 @@ export class C1 {
   readonly e = ``;
   readonly f = 1n;
   readonly g = undefined;
+  readonly h = function(): void {};
 }
 export class C2 {
   a = "";
@@ -15,6 +16,7 @@ export class C2 {
   e = ``;
   f = 1n;
   g = undefined;
+  h = function(): void {};
 }
 export class C3 {
   readonly a? = "";
@@ -24,6 +26,7 @@ export class C3 {
   readonly e? = ``;
   readonly f? = 1n;
   readonly g? = undefined;
+  readonly h? = function(): void {};
 }
 export class C4 {
   a? = "";
@@ -33,6 +36,7 @@ export class C4 {
   e? = ``;
   f? = 1n;
   g? = undefined;
+  h? = function(): void {};
 }
 
 export class C5 {
@@ -44,27 +48,29 @@ export class C5 {
 }
 
 export class C6 {
-  a = "" as "";
-  b = 1 as 1;
-  d = true as true;
-  e = `` as "";
-  f = 1n as 1n;
-}
-
-export class C7 {
-  a? = "" as "";
-  b? = 1 as 1;
-  d? = true as true;
-  e? = `` as "";
-  f? = 1n as 1n;
-}
-
-export class C8 {
   a? = "" as const;
   b? = 1 as const;
   d? = true as const;
   e? = `` as const;
   f? = 1n as const;
+}
+
+export class C7 {
+  a = "" as "";
+  b = 1 as 1;
+  d = true as true;
+  e = `` as "";
+  f = 1n as 1n;
+  h = function(): void {} as () => void;
+}
+
+export class C8 {
+  a? = "" as "";
+  b? = 1 as 1;
+  d? = true as true;
+  e? = `` as "";
+  f? = 1n as 1n;
+  h? = function(): void {} as () => void;
 }
 
 export class C9 {
