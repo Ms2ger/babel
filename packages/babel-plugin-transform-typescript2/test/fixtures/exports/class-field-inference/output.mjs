@@ -1,14 +1,4 @@
 export declare class C1 {
-  readonly a = "";
-  readonly b = 1;
-  readonly c: null;
-  readonly d = true;
-  readonly e = "";
-  readonly f = 1n;
-  readonly g: undefined;
-  readonly h: () => void;
-}
-export declare class C2 {
   a: string;
   b: number;
   c: null;
@@ -18,17 +8,17 @@ export declare class C2 {
   g: undefined;
   h: () => void;
 }
-export declare class C3 {
-  readonly a?: "" | undefined;
-  readonly b?: 1 | undefined;
-  readonly c?: null | undefined;
-  readonly d?: true | undefined;
-  readonly e?: "";
-  readonly f?: 1n | undefined;
-  readonly g?: undefined;
-  readonly h?: () => void;
+export declare class C2 {
+  readonly a = "";
+  readonly b = 1;
+  readonly c: null;
+  readonly d = true;
+  readonly e = "";
+  readonly f = 1n;
+  readonly g: undefined;
+  readonly h: () => void;
 }
-export declare class C4 {
+export declare class C3 {
   a?: string | undefined;
   b?: number | undefined;
   c?: null | undefined;
@@ -38,6 +28,16 @@ export declare class C4 {
   g?: undefined;
   h?: () => void;
 }
+export declare class C4 {
+  readonly a?: "" | undefined;
+  readonly b?: 1 | undefined;
+  readonly c?: null | undefined;
+  readonly d?: true | undefined;
+  readonly e?: "";
+  readonly f?: 1n | undefined;
+  readonly g?: undefined;
+  readonly h?: () => void;
+}
 export declare class C5 {
   a: "";
   b: 1;
@@ -46,13 +46,27 @@ export declare class C5 {
   f: 1n;
 }
 export declare class C6 {
+  readonly a: "";
+  readonly b: 1;
+  readonly d: true;
+  readonly e: "";
+  readonly f: 1n;
+}
+export declare class C7 {
   a?: "";
   b?: 1;
   d?: true;
   e?: "";
   f?: 1n;
 }
-export declare class C7 {
+export declare class C8 {
+  readonly a?: "";
+  readonly b?: 1;
+  readonly d?: true;
+  readonly e?: "";
+  readonly f?: 1n;
+}
+export declare class C9 {
   a: "";
   b: 1;
   d: true;
@@ -60,7 +74,7 @@ export declare class C7 {
   f: 1n;
   h: () => void;
 }
-export declare class C8 {
+export declare class C10 {
   a?: "";
   b?: 1;
   d?: true;
@@ -68,13 +82,27 @@ export declare class C8 {
   f?: 1n;
   h?: () => void;
 }
-export declare class C9 {
+export declare class C11 {
   a: readonly [2];
   b?: readonly [2] | undefined;
   readonly c: readonly [2];
   readonly d?: readonly [2] | undefined;
 }
-export declare class C10 {
+export declare class C12 {
+  a: {
+    a: number;
+  };
+  b?: {
+    a: number;
+  } | undefined;
+  readonly c: {
+    a: number;
+  };
+  readonly d: {
+    a: number;
+  };
+}
+export declare class C13 {
   a: {
     readonly a: 1;
   };
