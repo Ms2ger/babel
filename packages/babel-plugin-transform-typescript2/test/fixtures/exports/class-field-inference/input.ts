@@ -34,6 +34,7 @@ export class C4 {
   f? = 1n;
   g? = undefined;
 }
+
 export class C5 {
   a = "" as const;
   b = 1 as const;
@@ -41,22 +42,46 @@ export class C5 {
   e = `` as const;
   f = 1n as const;
 }
+
 export class C6 {
+  a = "" as "";
+  b = 1 as 1;
+  d = true as true;
+  e = `` as "";
+  f = 1n as 1n;
+}
+
+export class C7 {
+  a? = "" as "";
+  b? = 1 as 1;
+  d? = true as true;
+  e? = `` as "";
+  f? = 1n as 1n;
+}
+
+export class C8 {
   a? = "" as const;
   b? = 1 as const;
   d? = true as const;
   e? = `` as const;
   f? = 1n as const;
 }
-export class C7 {
+
+export class C9 {
   a = [2] as const;
   b? = [2] as const;
   readonly c = [2] as const;
   readonly d? = [2] as const;
-};
+}
+
+export class C10 {
+  a = {a:1} as const;
+  b? = {a:1} as const;
+  readonly c = {a:1} as const;
+  readonly d = {a:1} as const;
+}
+
 export class C {
-  h = {a:1} as const;
   readonly i = {a:1};
-  readonly j = {a:1} as const;
   k? = {a: "7"} as const;
 }
