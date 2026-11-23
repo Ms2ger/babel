@@ -1002,11 +1002,13 @@ export default declare((api, opts: Options) => {
         }
         // Note: private methods will be replaced again in TSDeclareMethod.
         let newNode: t.TSDeclareMethod = t.tsDeclareMethod(
-          t.cloneNode(node.key),
+          // t.cloneNode(node.key),
+          t.numericLiteral(1),
           t.cloneNode(typeParameters),
           node.accessibility === "private" ? [] : params,
           t.cloneNode(returnType)
         );
+        newNode.key = t.cloneNode(node.key); // TODO avoiding validation issue because the `tsDeclareMethod` implementation doesn't support computed properties
         newNode.computed = node.computed; // TODO weird things happening with type annotation
         // console.log("~~~ClassMethod: ", node.key, node.accessibility === "private", newNode.returnType)
         newNode.kind = node.kind;
