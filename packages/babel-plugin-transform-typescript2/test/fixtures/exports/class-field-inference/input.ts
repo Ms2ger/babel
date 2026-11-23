@@ -103,17 +103,19 @@ export class C12 {
   a = {a:1};
   b? = {a:1};
   readonly c = {a:1};
-  readonly d = {a:1};
+  readonly d? = {a:1};
 }
 
 export class C13 {
   a = {a:1} as const;
   b? = {a:1} as const;
   readonly c = {a:1} as const;
-  readonly d = {a:1} as const;
+  readonly d? = {a:1} as const;
 }
 
-export class C {
-  readonly i = {a:1};
-  k? = {a: "7"} as const;
+export class C14 {
+  a = {a:1} as {a: number};
+  b? = {a:1} as {a: number};
+  readonly c = {a:1} as {a: number};
+  readonly d? = {a:1} as {a: number};
 }

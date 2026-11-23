@@ -98,9 +98,9 @@ export declare class C12 {
   readonly c: {
     a: number;
   };
-  readonly d: {
+  readonly d?: {
     a: number;
-  };
+  } | undefined;
 }
 export declare class C13 {
   a: {
@@ -112,15 +112,21 @@ export declare class C13 {
   readonly c: {
     readonly a: 1;
   };
-  readonly d: {
+  readonly d?: {
     readonly a: 1;
-  };
+  } | undefined;
 }
-export declare class C {
-  readonly i: {
+export declare class C14 {
+  a: {
     a: number;
   };
-  k?: {
-    readonly a: "7";
-  } | undefined;
+  b?: {
+    a: number;
+  };
+  readonly c: {
+    a: number;
+  };
+  readonly d?: {
+    a: number;
+  };
 }
