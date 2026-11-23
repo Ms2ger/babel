@@ -1,0 +1,5 @@
+{
+  "sourceType": "module",
+  "plugins": ["transform-typescript2"],
+  "throws": "Untyped property in object literal (a)"
+}

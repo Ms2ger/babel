@@ -502,7 +502,6 @@ export default declare((api, opts: Options) => {
                 computed = true
               }
             } else if ((symbol = referenceToGlobalSymbol(key))) {
-              // TODO: ts supports keys like `[Symbol.hasInstance]`
               if (!isIdentifier(symbol)) {
                 throw new Error(`Unexpected property key ${generate(key).code}`)
               }
@@ -514,8 +513,7 @@ export default declare((api, opts: Options) => {
           if (isObjectMethod(prop)) {
             let [typeParameters, params, returnType] = inferFunctionType(prop, path, approach)
             if (!returnType) {
-              // TODO test
-              throw new Error(`Explicit return type is required`)
+              throw path.buildCodeFrameError(`Explicit return type is required for method ${generate(key).code}`)
             }
             signature = tsMethodSignature(
               key,
@@ -524,18 +522,17 @@ export default declare((api, opts: Options) => {
               returnType,
             );
           } else {
-            let inferred;
             if (!prop.value) {
               console.log(key)
-              throw new Error(`Property without value in object literal (${key})`)
+              throw 1;
             }
-            inferred = inferType(
+            const inferred = inferType(
               prop.value,
               path,
               approach === InferApproach.Const ? InferApproach.Const : InferApproach.Widen // XXX check approach
             );
             if (!inferred) {
-              throw new Error(`Untyped property in object literal (${key})`)
+              throw path.buildCodeFrameError(`Untyped property in object literal (${generate(key).code})`)
             }
             signature = tsPropertySignature(
               key,
