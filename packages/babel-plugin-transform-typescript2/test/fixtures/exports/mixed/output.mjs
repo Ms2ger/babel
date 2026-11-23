@@ -97,7 +97,6 @@ export declare let c: {
 export declare const d: () => void;
 export declare const e: object;
 export declare let f: any;
-export declare function g(...args: number[]): void;
 export declare function h(a: string, b?: string): void;
 export declare let i: {
   a(_: string): number;

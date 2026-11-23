@@ -42,6 +42,7 @@ import {
   isObjectExpression,
   isObjectMember,
   isObjectMethod,
+  isObjectPattern,
   isObjectProperty,
   isPrivateName,
   isReturnStatement,
@@ -268,25 +269,27 @@ export default declare((api, opts: Options) => {
       throw new Error("Void patterns not supported");
     }
     if (isAssignmentPattern(param)) {
-      if (!isIdentifier(param.left)) {
-        throw new Error("Assignment pattern in function parameter only supported with identifier LHS");
+      if (!isIdentifier(param.left) && !isArrayPattern(param.left) && !isObjectPattern(param.left)) {
+        throw path.buildCodeFrameError(`Assignment pattern in function parameter not supported with LHS of type ${param.left.type}`);
       }
-      let typeAnnotation: t.TSTypeAnnotation;
+      let typeAnnotation: t.TSTypeAnnotation | undefined;
       if (param.left.typeAnnotation) {
         typeAnnotation = translateTypeAnnotation(param.left.typeAnnotation);
-      } else {
+      } else if (isIdentifier(param.left)) {
         let inferred = inferType(param.right, path, InferApproach.Widen);
         if (!inferred) {
-          throw new Error("Could not infer type from RHS of assignment pattern");
+          throw path.buildCodeFrameError("Could not infer type from RHS of assignment pattern");
         }
         typeAnnotation = tsTypeAnnotation(inferred);
+      } else {
+        typeAnnotation = undefined;
       }
       param = param.left;
       param.optional = true;
       param.typeAnnotation = typeAnnotation;
     }
     if (!param.typeAnnotation) {
-      throw new Error(`Explicit parameter type is required`);
+      throw path.buildCodeFrameError(`Explicit parameter type is required`);
     }
     // if (isIdentifier(param)) {
     //   return param;

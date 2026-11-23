@@ -1,0 +1,1 @@
+export default function(a = true || false): number { return 7 }

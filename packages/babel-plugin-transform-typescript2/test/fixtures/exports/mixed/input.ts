@@ -104,7 +104,6 @@ export let c = {y:7, z: {["a"]:"", [9]: ""}, x: true};
 export const d = function(): void {}
 export const e: object = {y:7, z: {a:""}, x: true};
 export let f: any = {y:7, z: {a:""}, x: true};
-export function g(...args: number[]): void {};
 export function h(a: string, b?: string): void {};
 export let i = {
   a(_: string): number { return 7 },
