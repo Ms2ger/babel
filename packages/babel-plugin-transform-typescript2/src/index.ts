@@ -856,14 +856,13 @@ export default declare((api, opts: Options) => {
             path.replaceWith(newNode);
             return;
           }
-          // TODO review.
           node.returnType = null;
         }
       },
 
       BlockStatement: {
         exit(path) {
-          console.log("BlockStatement", path.node.body)
+          // console.log("BlockStatement", path.node.body)
           if (path.node.body.length) {
             path.replaceWithMultiple(path.node.body);
           } else {
@@ -876,12 +875,13 @@ export default declare((api, opts: Options) => {
         if (seen.has(path.node)) {
           return;
         }
-        console.log("VariableDeclaration:", generate(path.node).code);
+        // console.log("VariableDeclaration:", generate(path.node).code);
         // console.log("VariableDeclaration: before=", path.node.declarations)
         const vars = path.node.declarations.filter(decl => {
           if (!isIdentifier(decl.id)) {
             return false;
           }
+          // TODO replace by liveness check
           let [isExport, isDefaultExport] = isExported(path);
           return isExport || isDefaultExport || isReachableFromExport(decl.id.name, path.scope);
         }).map(decl => {
@@ -891,15 +891,15 @@ export default declare((api, opts: Options) => {
           }
           if (!declarator.id.typeAnnotation) {
             if (!declarator.init) {
-              throw new Error(`Type annotation required for ${path.node.kind}`);
+              throw path.buildCodeFrameError(`Type annotation required for ${path.node.kind} ${declarator.id.name}`);
             }
-            let inferred = inferType(
+            const inferred = inferType(
               declarator.init,
               path,
               path.node.kind === "const" ? InferApproach.Default : InferApproach.Widen
             );
             if (!inferred) {
-              throw path.buildCodeFrameError(`Type annotation required for ${path.node.kind}`);
+              throw path.buildCodeFrameError(`Type annotation required for ${path.node.kind} ${declarator.id.name}`);
             }
             // TODO clean up
             if (isTSAsExpression(declarator.init) && isTSTypeReference(declarator.init.typeAnnotation) && declarator.init.typeAnnotation.typeName.name === "const") {

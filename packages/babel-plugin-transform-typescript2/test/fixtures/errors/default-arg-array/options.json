@@ -1,5 +1,5 @@
 {
   "sourceType": "module",
   "plugins": ["transform-typescript2"],
-  "throws": "Assignment pattern in function parameter only supported with identifier LHS"
+  "throws": "Explicit parameter type is required"
 }
