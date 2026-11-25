@@ -947,16 +947,6 @@ export default declare((api, opts: Options) => {
                 // export declare const a = 7;
                 declarator.init = e;
               }
-              // if (isLiteral(declarator.init) && !isNullLiteral(declarator.init)) {
-              //   if (isTemplateLiteral(declarator.init)) {
-              //     declarator.init = translateTemplateLiteral(declarator.init);
-              //   }
-              //   // export declare const a = 7;
-              // } else {
-              //   // export declare const a: 7;
-              //   declarator.id.typeAnnotation = t.tsTypeAnnotation(inferred);
-              //   declarator.init = null;
-              // }
             }
           } else {
             declarator.init = null;
