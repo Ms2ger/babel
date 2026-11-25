@@ -341,6 +341,33 @@ export default declare((api, opts: Options) => {
     ]
   }
 
+  function isLiteralOrCloseEnough(e: t.Expression): t.Expression | undefined {
+    if (isLiteral(e) && !isNullLiteral(e)) {
+      if (isTemplateLiteral(e)) {
+        return translateTemplateLiteral(e);
+      }
+      return e;
+    }
+    if (isUnaryExpression(e)) {
+      const {operator: op, argument: arg} = e;
+      // TODO: These have been checked in inferType already.
+      // Consider merging this code into inferType somehow.
+      if (op !== "+" && op !== "-") {
+        throw new Error(`Unary operator ${op} not supported`);
+      }
+      if (arg.type !== "NumericLiteral" && arg.type !== "BigIntLiteral") {
+        throw new Error(`Unary operator ${op} not supported with argument ${arg}`);
+      }
+      if (op === "+") {
+        return t.cloneNode(arg);
+      }
+      if (op === "-") {
+        return t.cloneNode(e);
+      }
+    }
+    return undefined;
+  }
+
   enum InferApproach {
     Default,
     Widen,
@@ -621,7 +648,7 @@ export default declare((api, opts: Options) => {
         break;
       }
     }
-    console.log(`isExport=${isExport}`)
+    // console.log(`isExport=${isExport}`)
     return [isExport, isDefaultExport];
   }
 
@@ -906,12 +933,30 @@ export default declare((api, opts: Options) => {
               // export declare const a: 7;
               declarator.id.typeAnnotation = t.tsTypeAnnotation(inferred);
               declarator.init = null;
-            } else if (path.node.kind !== "const" || !isTSLiteralType(inferred)) {
-              // export declare const a: 7;
+            } else if (path.node.kind !== "const") {
+              // export declare let a: 7;
               declarator.id.typeAnnotation = t.tsTypeAnnotation(inferred);
               declarator.init = null;
             } else {
-              // export declare const a = 7;
+              const e = isLiteralOrCloseEnough(declarator.init);
+              if (e === undefined) {
+                // export declare const a: 7;
+                declarator.id.typeAnnotation = t.tsTypeAnnotation(inferred);
+                declarator.init = null;
+              } else {
+                // export declare const a = 7;
+                declarator.init = e;
+              }
+              // if (isLiteral(declarator.init) && !isNullLiteral(declarator.init)) {
+              //   if (isTemplateLiteral(declarator.init)) {
+              //     declarator.init = translateTemplateLiteral(declarator.init);
+              //   }
+              //   // export declare const a = 7;
+              // } else {
+              //   // export declare const a: 7;
+              //   declarator.id.typeAnnotation = t.tsTypeAnnotation(inferred);
+              //   declarator.init = null;
+              // }
             }
           } else {
             declarator.init = null;
@@ -956,11 +1001,12 @@ export default declare((api, opts: Options) => {
             throw path.buildCodeFrameError("Found class property without type annotation or value")
           }
           let value = path.node.value;
-          if (path.node.readonly && !path.node.optional && isLiteral(value) && !isNullLiteral(value)) {
-            if (isTemplateLiteral(value)) {
-              path.node.value = value = translateTemplateLiteral(value);
+          if (path.node.readonly && !path.node.optional) {
+            const newValue = isLiteralOrCloseEnough(value);
+            if (newValue !== undefined) {
+              path.node.value = value = newValue;
+              return;
             }
-            return;
           }
           let inferred = inferType(value, path,
             path.node.readonly ? InferApproach.Default : InferApproach.Widen);
@@ -977,8 +1023,13 @@ export default declare((api, opts: Options) => {
                 }
               }
             } else {
-              // This is pretty ad-hoc; functions were the only case I found.
-              if (!isTSUndefinedKeyword(inferred) && !isTSFunctionType(inferred) && !isTemplateLiteral(value)) {
+              // This is very ad-hoc and may not actually make a difference.
+              if (
+                !isTSUndefinedKeyword(inferred) &&
+                !isTSFunctionType(inferred) &&
+                !isTemplateLiteral(value) &&
+                !(isUnaryExpression(value) && value.operator === "+")
+              ) {
                 inferred = tsUnionType([inferred, tsUndefinedKeyword()]);
               }
             }

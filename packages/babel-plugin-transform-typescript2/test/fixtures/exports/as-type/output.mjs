@@ -1,3 +1,9 @@
-export declare let a: 7;
-export declare let b: 77;
-export declare const c: {};
+export declare let al: 7;
+export declare const ac: 7;
+export declare var av: 7;
+export declare let bl: 77;
+export declare const bc: 77;
+export declare var bv: 77;
+export declare let cl: {};
+export declare const cc: {};
+export declare var cv: {};

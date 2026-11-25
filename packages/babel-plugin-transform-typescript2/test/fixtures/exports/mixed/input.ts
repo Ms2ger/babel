@@ -96,8 +96,6 @@ export const enum E3 {
   B = 1,
 }
 
-export const x = 7;
-export let y = 7;
 export const a = {y:7, z: {a:""}, x: true};
 export let b = {y:7, z: {a:"", 9: ``}, x: true};
 export let c = {y:7, z: {["a"]:"", [9]: ""}, x: true};

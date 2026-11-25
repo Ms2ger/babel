@@ -1,3 +1,9 @@
-export let a = 7 as 7;
-export let b = 7 as 77;
-export const c = {y:7, z: {a:""}} as {};
+export let al = 7 as 7;
+export const ac = 7 as 7;
+export var av = 7 as 7;
+export let bl = 7 as 77;
+export const bc = 7 as 77;
+export var bv = 7 as 77;
+export let cl = {y:7, z: {a:""}} as {};
+export const cc = {y:7, z: {a:""}} as {};
+export var cv = {y:7, z: {a:""}} as {};

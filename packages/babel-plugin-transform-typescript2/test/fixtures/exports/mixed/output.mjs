@@ -69,8 +69,6 @@ export const enum E3 {
   A = 0,
   B = 1
 }
-export declare const x = 7;
-export declare let y: number;
 export declare const a: {
   y: number;
   z: {

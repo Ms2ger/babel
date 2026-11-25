@@ -1,85 +1,115 @@
 export declare class C1 {
   a: string;
   b: number;
+  bp: number;
+  bm: number;
   c: null;
   d: boolean;
   e: string;
   f: bigint;
+  fm: bigint;
   g: undefined;
   h: () => void;
 }
 export declare class C2 {
   readonly a = "";
   readonly b = 1;
+  readonly bp = 1;
+  readonly bm = -1;
   readonly c: null;
   readonly d = true;
   readonly e = "";
   readonly f = 1n;
+  readonly fm = -1n;
   readonly g: undefined;
   readonly h: () => void;
 }
 export declare class C3 {
   a?: string | undefined;
   b?: number | undefined;
+  bp?: number;
+  bm?: number | undefined;
   c?: null | undefined;
   d?: boolean | undefined;
   e?: string;
   f?: bigint | undefined;
+  fm?: bigint | undefined;
   g?: undefined;
   h?: () => void;
 }
 export declare class C4 {
   readonly a?: "" | undefined;
   readonly b?: 1 | undefined;
+  readonly bp?: 1;
+  readonly bm?: -1 | undefined;
   readonly c?: null | undefined;
   readonly d?: true | undefined;
   readonly e?: "";
   readonly f?: 1n | undefined;
+  readonly fm?: -1n | undefined;
   readonly g?: undefined;
   readonly h?: () => void;
 }
 export declare class C5 {
   a: "";
   b: 1;
+  bp: 1;
+  bm: -1;
   d: true;
   e: "";
   f: 1n;
+  fm: -1n;
 }
 export declare class C6 {
   readonly a: "";
   readonly b: 1;
+  readonly bp: 1;
+  readonly bm: -1;
   readonly d: true;
   readonly e: "";
   readonly f: 1n;
+  readonly fm: -1n;
 }
 export declare class C7 {
   a?: "";
   b?: 1;
+  bp?: 1;
+  bm?: -1;
   d?: true;
   e?: "";
   f?: 1n;
+  fm?: -1n;
 }
 export declare class C8 {
   readonly a?: "";
   readonly b?: 1;
+  readonly bp?: 1;
+  readonly bm?: -1;
   readonly d?: true;
   readonly e?: "";
   readonly f?: 1n;
+  readonly fm?: -1n;
 }
 export declare class C9 {
   a: "";
   b: 1;
+  bp: 1;
+  bm: -1;
   d: true;
   e: "";
   f: 1n;
+  fm: -1n;
   h: () => void;
 }
 export declare class C10 {
   a?: "";
   b?: 1;
+  bp?: 1;
+  bm?: -1;
   d?: true;
   e?: "";
   f?: 1n;
+  fm?: -1n;
   h?: () => void;
 }
 export declare class C11 {
