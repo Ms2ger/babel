@@ -144,3 +144,26 @@ export let e0!: number
 
 var l = function(a = 7) : string { return "" }
 export { l };
+
+export class C8 {
+  [globalThis.Symbol.hasInstance](): boolean { return false }
+  [globalThis.Symbol.isConcatSpreadable](): boolean { return false }
+  [+1](): boolean { return false }
+  [-1](): boolean { return false }
+  [+2] = "";
+  [-2] = "";
+  ["a"] = "";
+  [`b`] = "";
+  // [`-c`] = "";
+};
+export let x = {
+  [globalThis.Symbol.hasInstance](): boolean { return false },
+  [globalThis.Symbol.isConcatSpreadable](): boolean { return false },
+  [+1](): boolean { return false },
+  [-1](): boolean { return false },
+  [+2]: "",
+  [-2]: "",
+  ["a"]: "",
+  [`b`]: "",
+  // [`-c`]: "",
+}

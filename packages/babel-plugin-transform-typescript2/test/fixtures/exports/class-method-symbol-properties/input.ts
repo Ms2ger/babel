@@ -5,4 +5,5 @@ export class C1 {
 export class C2 {
   [globalThis.Symbol.hasInstance](): boolean { return false }
   [globalThis.Symbol.isConcatSpreadable](): boolean { return false }
+  [Symbol()](): boolean { return false }
 };

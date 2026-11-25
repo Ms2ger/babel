@@ -10,6 +10,7 @@ import type {
 } from "@babel/core";
 import { injectInitialization } from "@babel/helper-create-class-features-plugin";
 import type { Options as SyntaxOptions } from "@babel/plugin-syntax-typescript";
+// import isValidIdentifier from "../validators/isValidIdentifier.ts";
 
 import transpileConstEnum from "./const-enum.ts";
 import type { NodePathConstEnum } from "./const-enum.ts";
@@ -47,7 +48,7 @@ import {
   isPrivateName,
   isReturnStatement,
   isSpreadElement,
-  isStringLiteral, isTemplateLiteral, isTSAsExpression, isTSFunctionType, isTSLiteralType, isTSParameterProperty, isTSPropertySignature, isTSTypeReference, isTSUndefinedKeyword, isTypeAnnotation, isTypeParameterDeclaration, isUnaryExpression, isVoidPattern, privateName, stringLiteral, stringTypeAnnotation, tsBigIntKeyword, tsBooleanKeyword, tsDeclareFunction,
+  isStringLiteral, isTemplateLiteral, isTSAsExpression, isTSFunctionType, isTSLiteralType, isTSParameterProperty, isTSPropertySignature, isTSTypeReference, isTSUndefinedKeyword, isTypeAnnotation, isTypeParameterDeclaration, isUnaryExpression, isValidIdentifier, isVoidPattern, privateName, stringLiteral, stringTypeAnnotation, tsBigIntKeyword, tsBooleanKeyword, tsDeclareFunction,
   TSLiteralType,
   tsLiteralType,
   tsMethodSignature,
@@ -151,12 +152,12 @@ type ExtraNodeProps = {
   override?: unknown;
 };
 
-function translateTemplateLiteral(e: t.TemplateLiteral) : t.StringLiteral {
+function ensureConstantTemplateLiteral(e: t.TemplateLiteral): string {
   if (e.expressions.length) {
     throw new Error(`Template literal with expressions not supported`)
   }
   // TODO: any edge cases?
-  return stringLiteral(e.quasis[0].value.raw);
+  return e.quasis[0].value.raw;
 }
 
 export default declare((api, opts: Options) => {
@@ -344,7 +345,7 @@ export default declare((api, opts: Options) => {
   function isLiteralOrCloseEnough(e: t.Expression): t.Expression | undefined {
     if (isLiteral(e) && !isNullLiteral(e)) {
       if (isTemplateLiteral(e)) {
-        return translateTemplateLiteral(e);
+        return stringLiteral(ensureConstantTemplateLiteral(e));
       }
       return e;
     }
@@ -425,11 +426,11 @@ export default declare((api, opts: Options) => {
 
     switch (declaration.type) {
       case "TemplateLiteral": {
-        let string = translateTemplateLiteral(declaration);
+        let string = ensureConstantTemplateLiteral(declaration);
         if (approach === InferApproach.Widen) {
           return tsStringKeyword();
         }
-        return tsLiteralType(string);
+        return tsLiteralType(stringLiteral(string));
       }
       case "UnaryExpression": {
         const {operator: op, argument: arg} = declaration;
@@ -511,6 +512,13 @@ export default declare((api, opts: Options) => {
           if (prop.computed) {
             if (isStringLiteral(key)) {
               key = t.identifier(key.value);
+            } else if (isTemplateLiteral(key)) {
+              const i = ensureConstantTemplateLiteral(key);
+              if (!isValidIdentifier(i)) {
+                // Do something else
+                throw 55
+              }
+              key = t.identifier(i);
             } else if (isNumericLiteral(key)) {
               // Fine
             } else if (isUnaryExpression(key)) {
@@ -1054,6 +1062,7 @@ export default declare((api, opts: Options) => {
         );
         newNode.key = t.cloneNode(node.key); // TODO avoiding validation issue because the `tsDeclareMethod` implementation doesn't support computed properties
         newNode.computed = node.computed; // TODO weird things happening with type annotation
+        // TODO restrict keys like in ObjectExpression
         // console.log("~~~ClassMethod: ", node.key, node.accessibility === "private", newNode.returnType)
         newNode.kind = node.kind;
         newNode.static = node.static;
