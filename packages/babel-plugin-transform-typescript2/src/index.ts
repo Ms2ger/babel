@@ -912,29 +912,31 @@ export default declare((api, opts: Options) => {
         }
         // console.log("VariableDeclaration:", generate(path.node).code);
         // console.log("VariableDeclaration: before=", path.node.declarations)
-        const vars = path.node.declarations.filter(decl => {
+        const vars = path.get("declarations").filter(declPath => {
+          const decl = declPath.node;
           if (!isIdentifier(decl.id)) {
             return false;
           }
           // TODO replace by liveness check
           let [isExport, isDefaultExport] = isExported(path);
           return isExport || isDefaultExport || isReachableFromExport(decl.id.name, path.scope);
-        }).map(decl => {
+        }).map(declPath => {
+          const decl = declPath.node;
           const declarator = t.cloneNode(decl);
           if (!isIdentifier(declarator.id)) {
             throw undefined;
           }
           if (!declarator.id.typeAnnotation) {
             if (!declarator.init) {
-              throw path.buildCodeFrameError(`Type annotation required for ${path.node.kind} ${declarator.id.name}`);
+              throw declPath.buildCodeFrameError(`Type annotation required for ${path.node.kind} ${declarator.id.name}`);
             }
             const inferred = inferType(
               declarator.init,
-              path,
+              declPath,
               path.node.kind === "const" ? InferApproach.Default : InferApproach.Widen
             );
             if (!inferred) {
-              throw path.buildCodeFrameError(`Type annotation required for ${path.node.kind} ${declarator.id.name}`);
+              throw declPath.buildCodeFrameError(`Type annotation required for ${path.node.kind} ${declarator.id.name}`);
             }
             // TODO clean up
             if (isTSAsExpression(declarator.init) && isTSTypeReference(declarator.init.typeAnnotation) && declarator.init.typeAnnotation.typeName.name === "const") {
