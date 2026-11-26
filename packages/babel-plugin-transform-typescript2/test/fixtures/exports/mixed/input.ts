@@ -154,7 +154,8 @@ export class C8 {
   [-2] = "";
   ["a"] = "";
   [`b`] = "";
-  // [`-c`] = "";
+  [`-c`] = "";
+  ["-d"] = "";
 };
 export let x = {
   [globalThis.Symbol.hasInstance](): boolean { return false },
@@ -165,5 +166,6 @@ export let x = {
   [-2]: "",
   ["a"]: "",
   [`b`]: "",
-  // [`-c`]: "",
+  [`-c`]: "",
+  ["-d"]: "",
 }

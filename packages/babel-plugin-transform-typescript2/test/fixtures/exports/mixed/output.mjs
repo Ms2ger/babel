@@ -145,6 +145,7 @@ export declare class C8 {
   ["a"]: string;
   [`b`]: string;
   [`-c`]: string;
+  ["-d"]: string;
 }
 export declare let x: {
   [Symbol.hasInstance](): boolean;
@@ -156,4 +157,5 @@ export declare let x: {
   a: string;
   b: string;
   "-c": string;
+  "-d": string;
 };

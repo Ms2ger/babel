@@ -160,6 +160,25 @@ function ensureConstantTemplateLiteral(e: t.TemplateLiteral): string {
   return e.quasis[0].value.raw;
 }
 
+function referenceToGlobalSymbol(key: t.Expression): t.Expression | t.PrivateName | undefined {
+  if (!isMemberExpression(key)) {
+    return undefined;
+  }
+  if (isIdentifier(key.object) && key.object.name === "Symbol") {
+    // TODO: check this is a reference to the real Symbol
+    // TODO: check the property is valid
+    return key.property;
+  }
+  if (isMemberExpression(key.object) &&
+      isIdentifier(key.object.object) && key.object.object.name === "globalThis" &&
+      isIdentifier(key.object.property) && key.object.property.name === "Symbol") {
+    // TODO: check this is a reference to the real Symbol
+    // TODO: check the property is valid
+    return key.property;
+  }
+  return undefined;
+}
+
 export default declare((api, opts: Options) => {
   // `@babel/core` and `@babel/types` are bundled in some downstream libraries.
   // Ref: https://github.com/babel/babel/issues/15089
@@ -480,24 +499,6 @@ export default declare((api, opts: Options) => {
       }
       case "ObjectExpression": {
         // TODO rm PrivateName
-        function referenceToGlobalSymbol(key: t.Expression): t.Expression | t.PrivateName | undefined {
-          if (!isMemberExpression(key)) {
-            return undefined;
-          }
-          if (isIdentifier(key.object) && key.object.name === "Symbol") {
-            // TODO: check this is a reference to the real Symbol
-            // TODO: check the property is valid
-            return key.property;
-          }
-          if (isMemberExpression(key.object) &&
-              isIdentifier(key.object.object) && key.object.object.name === "globalThis" &&
-              isIdentifier(key.object.property) && key.object.property.name === "Symbol") {
-            // TODO: check this is a reference to the real Symbol
-            // TODO: check the property is valid
-            return key.property;
-          }
-          return undefined;
-        }
         let members = declaration.properties.map((prop: t.ObjectProperty | t.ObjectMethod | t.SpreadElement) => {
           // TODO factor out
           if (isSpreadElement(prop)) {
@@ -510,15 +511,9 @@ export default declare((api, opts: Options) => {
           let symbol;
           let computed = false;
           if (prop.computed) {
-            if (isStringLiteral(key)) {
-              key = t.identifier(key.value);
-            } else if (isTemplateLiteral(key)) {
-              const i = ensureConstantTemplateLiteral(key);
-              if (!isValidIdentifier(i)) {
-                // Do something else
-                throw 55
-              }
-              key = t.identifier(i);
+            if (isStringLiteral(key) || isTemplateLiteral(key)) {
+              const id = isStringLiteral(key) ? key.value : ensureConstantTemplateLiteral(key);
+              key = isValidIdentifier(id) ? t.identifier(id) : t.stringLiteral(id);
             } else if (isNumericLiteral(key)) {
               // Fine
             } else if (isUnaryExpression(key)) {
@@ -543,6 +538,8 @@ export default declare((api, opts: Options) => {
               if (!isIdentifier(symbol)) {
                 throw new Error(`Unexpected property key ${generate(key).code}`)
               }
+              key = t.memberExpression(t.identifier("Symbol"), symbol);
+              computed = true;
             } else {
               throw path.buildCodeFrameError(`Unexpected property key ${generate(key).code}`)
             }
@@ -1047,10 +1044,21 @@ export default declare((api, opts: Options) => {
       },
 
       ClassMethod(path) {
-        let node: t.ClassMethodComputed | t.ClassMethodNonComputed = path.node;
-        let [typeParameters, params, returnType] = inferFunctionType(node, path, InferApproach.Default);
+        const node: t.ClassMethodComputed | t.ClassMethodNonComputed = path.node;
+        const [typeParameters, params, returnType] = inferFunctionType(node, path, InferApproach.Default);
         if (node.kind === "method" && !returnType && node.accessibility !== "private") {
           throw new Error(`Must declare the return type of method`);
+        }
+        let key = node.key;
+        if (node.computed) {
+          // TODO verify if this is missing any allowed case.
+          if (isLiteralOrCloseEnough(key)) {
+
+          } else if (referenceToGlobalSymbol(key)) {
+
+          } else {
+            throw path.buildCodeFrameError(`Computed property name not supported on class method`);
+          }
         }
         // Note: private methods will be replaced again in TSDeclareMethod.
         let newNode: t.TSDeclareMethod = t.tsDeclareMethod(
@@ -1060,7 +1068,7 @@ export default declare((api, opts: Options) => {
           node.accessibility === "private" ? [] : params,
           t.cloneNode(returnType)
         );
-        newNode.key = t.cloneNode(node.key); // TODO avoiding validation issue because the `tsDeclareMethod` implementation doesn't support computed properties
+        newNode.key = t.cloneNode(key); // TODO avoiding validation issue because the `tsDeclareMethod` implementation doesn't support computed properties
         newNode.computed = node.computed; // TODO weird things happening with type annotation
         // TODO restrict keys like in ObjectExpression
         // console.log("~~~ClassMethod: ", node.key, node.accessibility === "private", newNode.returnType)
