@@ -401,20 +401,18 @@ export default declare((api, opts: Options) => {
     }
     // TODO: similar code elsewhere
     if (isTSAsExpression(declaration)) {
-      let typeAnnotation = declaration.typeAnnotation;
+      const typeAnnotation = declaration.typeAnnotation;
       if (isTSTypeReference(typeAnnotation) && typeAnnotation.typeName.name === "const") {
-        let inferred = inferType(declaration.expression, path, InferApproach.Const);
-        console.log(inferred);
-        // throw 1
+        const inferred = inferType(declaration.expression, path, InferApproach.Const);
+        // console.log(inferred);
         return inferred;
       }
       return typeAnnotation;
     }
     if (isFunction(declaration)) {
-      let [typeParameters, params, returnType] = inferFunctionType(declaration, path, approach);
+      const [typeParameters, params, returnType] = inferFunctionType(declaration, path, approach);
       if (!returnType) {
-        // TODO test
-        throw new Error(`Explicit return type is required`)
+        throw path.buildCodeFrameError(`Explicit return type is required`);
       }
       return t.tsFunctionType(
         typeParameters,
