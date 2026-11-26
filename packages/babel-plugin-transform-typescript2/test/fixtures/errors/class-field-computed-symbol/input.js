@@ -1,3 +1,3 @@
 export class C {
-  [Symbol()] = true;
+  [Symbol()]: boolean = true;
 };
