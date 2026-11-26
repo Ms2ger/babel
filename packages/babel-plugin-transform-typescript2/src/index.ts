@@ -983,6 +983,17 @@ export default declare((api, opts: Options) => {
         node.declare = true;
       },
       ClassProperty(path) {
+        if (path.node.computed) {
+          // TODO verify if this is missing any allowed case.
+          let key = path.node.key;
+          if (isLiteralOrCloseEnough(key)) {
+
+          } else if (referenceToGlobalSymbol(key)) {
+
+          } else {
+            throw path.buildCodeFrameError(`Computed property name not supported on class property`);
+          }
+        }
         if (path.node.accessibility === "private") {
           path.node.typeAnnotation = null;
           path.node.value = null;
