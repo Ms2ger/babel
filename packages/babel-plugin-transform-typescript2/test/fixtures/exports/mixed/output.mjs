@@ -135,27 +135,3 @@ export declare function k<T>(): {
 export declare let e0: number;
 declare var l: (a?: number) => string;
 export { l };
-export declare class C8 {
-  [globalThis.Symbol.hasInstance](): boolean;
-  [globalThis.Symbol.isConcatSpreadable](): boolean;
-  [+1](): boolean;
-  [-1](): boolean;
-  [+2]: string;
-  [-2]: string;
-  ["a"]: string;
-  [`b`]: string;
-  [`-c`]: string;
-  ["-d"]: string;
-}
-export declare let x: {
-  [Symbol.hasInstance](): boolean;
-  [Symbol.isConcatSpreadable](): boolean;
-  1(): boolean;
-  [-1](): boolean;
-  2: string;
-  [-2]: string;
-  a: string;
-  b: string;
-  "-c": string;
-  "-d": string;
-};

@@ -1,0 +1,5 @@
+{
+  "sourceType": "module",
+  "plugins": ["transform-typescript2"],
+  "throws": "Unary operator + not supported with argument 10n"
+}

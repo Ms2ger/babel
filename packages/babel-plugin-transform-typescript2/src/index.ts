@@ -372,18 +372,19 @@ export default declare((api, opts: Options) => {
       const {operator: op, argument: arg} = e;
       // TODO: These have been checked in inferType already.
       // Consider merging this code into inferType somehow.
-      if (op !== "+" && op !== "-") {
-        throw new Error(`Unary operator ${op} not supported`);
-      }
-      if (arg.type !== "NumericLiteral" && arg.type !== "BigIntLiteral") {
-        throw new Error(`Unary operator ${op} not supported with argument ${arg}`);
-      }
       if (op === "+") {
+        if (arg.type !== "NumericLiteral") {
+          throw new Error(`Unary operator ${op} not supported with argument ${arg}`);
+        }
         return t.cloneNode(arg);
       }
       if (op === "-") {
+        if (arg.type !== "NumericLiteral" && arg.type !== "BigIntLiteral") {
+          throw new Error(`Unary operator ${op} not supported with argument ${arg}`);
+        }
         return t.cloneNode(e);
       }
+      throw new Error(`Unary operator ${op} not supported`);
     }
     return undefined;
   }
@@ -454,21 +455,25 @@ export default declare((api, opts: Options) => {
       case "UnaryExpression": {
         const {operator: op, argument: arg} = declaration;
         // These seem to be the only cases ts supports.
-        if (op !== "+" && op !== "-") {
-          throw new Error(`Unary operator ${op} not supported`);
-        }
-        if (arg.type !== "NumericLiteral" && arg.type !== "BigIntLiteral") {
-          throw new Error(`Unary operator ${op} not supported with argument ${arg}`);
-        }
-        if (approach === InferApproach.Widen) {
-          return arg.type === "NumericLiteral" ? tsNumberKeyword() : tsBigIntKeyword();
-        }
         if (op === "+") {
+          if (arg.type !== "NumericLiteral") {
+            throw path.buildCodeFrameError(`Unary operator ${op} not supported with argument ${generate(arg).code}`);
+          }
+          if (approach === InferApproach.Widen) {
+            return tsNumberKeyword();
+          }
           return tsLiteralType(t.cloneNode(arg));
         }
         if (op === "-") {
+          if (arg.type !== "NumericLiteral" && arg.type !== "BigIntLiteral") {
+            throw path.buildCodeFrameError(`Unary operator ${op} not supported with argument ${generate(arg).code}`);
+          }
+          if (approach === InferApproach.Widen) {
+            return arg.type === "NumericLiteral" ? tsNumberKeyword() : tsBigIntKeyword();
+          }
           return tsLiteralType(t.cloneNode(declaration));
         }
+        throw path.buildCodeFrameError(`Unary operator ${op} not supported`);
       }
       case "StringLiteral": {
         if (approach === InferApproach.Widen) {
@@ -521,10 +526,10 @@ export default declare((api, opts: Options) => {
               const {operator: op, argument: arg} = key;
               // These seem to be the only cases ts supports.
               if (op !== "+" && op !== "-") {
-                throw new Error(`Unary operator ${op} not supported`);
+                throw path.buildCodeFrameError(`Unary operator ${op} not supported`);
               }
               if (arg.type !== "NumericLiteral") {
-                throw new Error(`Unary operator ${op} not supported with argument ${arg}`);
+                throw path.buildCodeFrameError(`Unary operator ${op} not supported with argument ${arg}`);
               }
               if (op === "+") {
                 // Drop the `+` entirely
