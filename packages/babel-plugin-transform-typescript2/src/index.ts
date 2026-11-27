@@ -1101,45 +1101,139 @@ export default declare((api, opts: Options) => {
         path.remove();
       },
 
-      Class(path) {
-        const { node }: { node: typeof path.node & ExtraNodeProps } = path;
-        let filtered = node.body.body.filter(field =>
-          !isClassPrivateProperty(field) &&
-          !isClassPrivateMethod(field)
-        );
-        let hasPrivate = node.body.body.length !== filtered.length;
-        node.body.body = filtered;
-        if (hasPrivate) {
-          node.body.body.unshift(
-            classPrivateProperty(
-              privateName(t.identifier("private"))
+      Class: {
+        enter(path) {
+          const { node }: { node: typeof path.node & ExtraNodeProps } = path;
+          let filtered = node.body.body.filter(field =>
+            !isClassPrivateProperty(field) &&
+            !isClassPrivateMethod(field)
+          );
+          let hasPrivate = node.body.body.length !== filtered.length;
+          node.body.body = filtered;
+          if (hasPrivate) {
+            node.body.body.unshift(
+              classPrivateProperty(
+                privateName(t.identifier("private"))
+              )
             )
-          )
-        }
-
-        // Similar to the logic in `transform-flow-strip-types`, we need to
-        // handle `TSParameterProperty` and `ClassProperty` here because the
-        // class transform would transform the class, causing more specific
-        // visitors to not run.
-        path.get("body.body").forEach(child => {
-          if (child.isClassMethod() || child.isClassPrivateMethod()) {
-            if (child.node.kind === "constructor") {
-              classMemberVisitors.constructor(
-                // @ts-expect-error A constructor must not be a private method
-                child,
-                path,
-              );
-            } else {
-              classMemberVisitors.method(child);
-            }
-          } else if (
-            child.isClassProperty() ||
-            child.isClassPrivateProperty() ||
-            child.isClassAccessorProperty()
-          ) {
-            classMemberVisitors.field(child);
           }
-        });
+
+          // Similar to the logic in `transform-flow-strip-types`, we need to
+          // handle `TSParameterProperty` and `ClassProperty` here because the
+          // class transform would transform the class, causing more specific
+          // visitors to not run.
+          path.get("body.body").forEach(child => {
+            if (child.isClassMethod() || child.isClassPrivateMethod()) {
+              if (child.node.kind === "constructor") {
+                classMemberVisitors.constructor(
+                  // @ts-expect-error A constructor must not be a private method
+                  child,
+                  path,
+                );
+              } else {
+                classMemberVisitors.method(child);
+              }
+            } else if (
+              child.isClassProperty() ||
+              child.isClassPrivateProperty() ||
+              child.isClassAccessorProperty()
+            ) {
+              classMemberVisitors.field(child);
+            }
+          });
+        },
+        exit(path) {
+          function isSameExpression(a: t.Expression, b: t.Expression): boolean {
+            if (t.isIdentifier(a)) {
+              a = t.stringLiteral(a.name);
+            }
+            if (t.isIdentifier(b)) {
+              b = t.stringLiteral(b.name);
+            }
+            if (t.isStringLiteral(a) && t.isStringLiteral(b)) {
+              return a.value === b.value;
+            }
+            return false;
+          }
+          let gettersAndSetters: [t.Expression,
+              { get?: t.ClassMethod & {kind:"get"}, set?: t.ClassMethod & {kind:"set"} }][] = [];
+          path.get("body.body").forEach((child, idx) => {
+            console.log(`Class ${path.node.id?.name} field ${idx}`, child.node)
+            if (!child.isTSDeclareMethod()) {
+              return;
+            }
+            const node = child.node;
+            if (isPrivateName(node.key) || (node.kind !== "get" && node.kind !== "set")) {
+              return;
+            }
+            let found = false;
+            for (const [key, methods] of gettersAndSetters) {
+              if (isSameExpression(key, node.key)) {
+                found = true;
+                if (node.kind === "get") {
+                  // @ts-expect-error Argument of type
+                  methods.get = node;
+                } else {
+                  // @ts-expect-error Argument of type
+                  methods.set = node;
+                }
+              }
+            }
+            if (!found) {
+              const methods = {};
+              if (node.kind === "get") {
+                // @ts-expect-error Argument of type
+                methods.get = node;
+              } else {
+                // @ts-expect-error Argument of type
+                methods.set = node;
+              }
+              gettersAndSetters.push([node.key, methods]);
+            }
+          });
+          console.log(`class ${path.node.id?.name}:`, gettersAndSetters)
+          for (const [_, methods] of gettersAndSetters) {
+            if (methods.get && methods.set) {
+              let returnType = methods.get.returnType;
+              let paramType = (methods.set.params[0] as t.ArrayPattern | t.AssignmentPattern | t.Identifier | t.ObjectPattern | t.RestElement).typeAnnotation;
+              if (returnType && paramType) {
+                // TODO throw if mismatch
+              } else if (returnType) {
+                (methods.set.params[0] as t.ArrayPattern | t.AssignmentPattern | t.Identifier | t.ObjectPattern | t.RestElement).typeAnnotation =
+                  t.cloneNode(returnType);
+              } else if (paramType) {
+                methods.get.returnType = t.cloneNode(paramType);
+              } else {
+                throw new Error("At least one of getter and setter should have a type annotation")
+              }
+            } else if (methods.set) {
+              let paramType = (methods.set.params[0] as t.ArrayPattern | t.AssignmentPattern | t.Identifier | t.ObjectPattern | t.RestElement).typeAnnotation;
+              if (!paramType) {
+                throw new Error("Setter parameter should have a type annotation");
+              }
+            } else {
+              let returnType = methods.get!.returnType;
+              if (!returnType) {
+                throw new Error("Getter should have a return type annotation");
+              }
+            }
+          }
+
+          //   const getterOrSetter = gettersAndSetters.get(node.key);
+          //   if (getterOrSetter) {
+          //     if (getterOrSetter.kind === "get") {
+          //       let returnType = getterOrSetter.returnType;
+          //       let argumentType = node.returnType;
+          //     }
+          //   } else {
+          //     // @ts-expect-error Argument of type 'ClassMethodComputed | ClassMethodNonComputed'
+          //     // is not assignable to parameter of type 'ClassMethod & { kind: "get" | "set"; }'.
+          //     gettersAndSetters.set(node.key, node);
+          //   }
+
+          // });
+
+        },
       },
       Function(path) {
         const { node } = path;
