@@ -160,13 +160,16 @@ function ensureConstantTemplateLiteral(e: t.TemplateLiteral): string {
   return e.quasis[0].value.raw;
 }
 
-function referenceToGlobalSymbol(key: t.Expression): t.Expression | t.PrivateName | undefined {
+function referenceToGlobalSymbol(key: t.Expression): t.Expression | undefined {
   if (!isMemberExpression(key)) {
     return undefined;
   }
   if (isIdentifier(key.object) && key.object.name === "Symbol") {
     // TODO: check this is a reference to the real Symbol
     // TODO: check the property is valid
+    if (isPrivateName(key.property)) {
+      return undefined;
+    }
     return key.property;
   }
   if (isMemberExpression(key.object) &&
@@ -174,6 +177,9 @@ function referenceToGlobalSymbol(key: t.Expression): t.Expression | t.PrivateNam
       isIdentifier(key.object.property) && key.object.property.name === "Symbol") {
     // TODO: check this is a reference to the real Symbol
     // TODO: check the property is valid
+    if (isPrivateName(key.property)) {
+      return undefined;
+    }
     return key.property;
   }
   return undefined;
@@ -603,6 +609,47 @@ export default declare((api, opts: Options) => {
     }
 
   }
+
+  function translateClassMethod(
+    node: t.ClassMethod,
+    path: NodePath,
+    typeParameters,
+    params,
+    returnType,
+  ): t.TSDeclareMethod {
+    let key = node.key;
+    if (node.computed) {
+      // TODO verify if this is missing any allowed case.
+      if (isLiteralOrCloseEnough(key)) {
+
+      } else if (referenceToGlobalSymbol(key)) {
+
+      } else {
+        throw path.buildCodeFrameError(`Computed property name not supported on class method`);
+      }
+    }
+    // Note: private methods will be replaced again in TSDeclareMethod.
+    let newNode: t.TSDeclareMethod = t.tsDeclareMethod(
+      // t.cloneNode(node.key),
+      t.numericLiteral(1),
+      t.cloneNode(typeParameters),
+      node.accessibility === "private" ? [] : params,
+      t.cloneNode(returnType)
+    );
+    newNode.key = t.cloneNode(key); // TODO avoiding validation issue because the `tsDeclareMethod` implementation doesn't support computed properties
+    newNode.computed = node.computed; // TODO weird things happening with type annotation
+    // TODO restrict keys like in ObjectExpression
+    // console.log("~~~ClassMethod: ", node.key, node.accessibility === "private", newNode.returnType)
+    newNode.kind = node.kind;
+    newNode.static = node.static;
+
+    // XXX What's the difference between these?
+    newNode.access = node.access;
+    newNode.accessibility = node.accessibility === "public" ? null : node.accessibility;
+    return newNode;
+  }
+
+
   function isReachableFromExport(id: string | undefined, scope: Scope) : boolean {
     console.log(`isReachableFromExport(${id})`)
     // console.log(scope)
@@ -1061,40 +1108,15 @@ export default declare((api, opts: Options) => {
 
       ClassMethod(path) {
         const node: t.ClassMethodComputed | t.ClassMethodNonComputed = path.node;
+        if ((node.kind === "get" || node.kind === "set")) {
+          path.skip();
+          return;
+        }
         const [typeParameters, params, returnType] = inferFunctionType(node, path, InferApproach.Default);
         if (node.kind === "method" && !returnType && node.accessibility !== "private") {
           throw new Error(`Must declare the return type of method`);
         }
-        let key = node.key;
-        if (node.computed) {
-          // TODO verify if this is missing any allowed case.
-          if (isLiteralOrCloseEnough(key)) {
-
-          } else if (referenceToGlobalSymbol(key)) {
-
-          } else {
-            throw path.buildCodeFrameError(`Computed property name not supported on class method`);
-          }
-        }
-        // Note: private methods will be replaced again in TSDeclareMethod.
-        let newNode: t.TSDeclareMethod = t.tsDeclareMethod(
-          // t.cloneNode(node.key),
-          t.numericLiteral(1),
-          t.cloneNode(typeParameters),
-          node.accessibility === "private" ? [] : params,
-          t.cloneNode(returnType)
-        );
-        newNode.key = t.cloneNode(key); // TODO avoiding validation issue because the `tsDeclareMethod` implementation doesn't support computed properties
-        newNode.computed = node.computed; // TODO weird things happening with type annotation
-        // TODO restrict keys like in ObjectExpression
-        // console.log("~~~ClassMethod: ", node.key, node.accessibility === "private", newNode.returnType)
-        newNode.kind = node.kind;
-        newNode.static = node.static;
-
-        // XXX What's the difference between these?
-        newNode.access = node.access;
-        newNode.accessibility = node.accessibility === "public" ? null : node.accessibility;
-
+        const newNode = translateClassMethod(node, path, typeParameters, params, returnType);
         path.replaceWith(newNode);
       },
       StaticBlock(path) {
@@ -1153,17 +1175,21 @@ export default declare((api, opts: Options) => {
             if (t.isStringLiteral(a) && t.isStringLiteral(b)) {
               return a.value === b.value;
             }
+            const as = referenceToGlobalSymbol(a), bs = referenceToGlobalSymbol(b);
+            if (as && bs && isSameExpression(as, bs)) {
+              return true;
+            }
             return false;
           }
           let gettersAndSetters: [t.Expression,
-              { get?: t.ClassMethod & {kind:"get"}, set?: t.ClassMethod & {kind:"set"} }][] = [];
+              { get?: NodePath<t.ClassMethod>, set?: NodePath<t.ClassMethod> }][] = [];
           path.get("body.body").forEach((child, idx) => {
             console.log(`Class ${path.node.id?.name} field ${idx}`, child.node)
-            if (!child.isTSDeclareMethod()) {
+            if (!child.isClassMethod()) {
               return;
             }
             const node = child.node;
-            if (isPrivateName(node.key) || (node.kind !== "get" && node.kind !== "set")) {
+            if (node.kind !== "get" && node.kind !== "set") {
               return;
             }
             let found = false;
@@ -1171,22 +1197,18 @@ export default declare((api, opts: Options) => {
               if (isSameExpression(key, node.key)) {
                 found = true;
                 if (node.kind === "get") {
-                  // @ts-expect-error Argument of type
-                  methods.get = node;
+                  methods.get = child;
                 } else {
-                  // @ts-expect-error Argument of type
-                  methods.set = node;
+                  methods.set = child;
                 }
               }
             }
             if (!found) {
               const methods = {};
               if (node.kind === "get") {
-                // @ts-expect-error Argument of type
-                methods.get = node;
+                methods.get = child;
               } else {
-                // @ts-expect-error Argument of type
-                methods.set = node;
+                methods.set = child;
               }
               gettersAndSetters.push([node.key, methods]);
             }
@@ -1194,29 +1216,37 @@ export default declare((api, opts: Options) => {
           console.log(`class ${path.node.id?.name}:`, gettersAndSetters)
           for (const [_, methods] of gettersAndSetters) {
             if (methods.get && methods.set) {
-              let returnType = methods.get.returnType;
-              let paramType = (methods.set.params[0] as t.ArrayPattern | t.AssignmentPattern | t.Identifier | t.ObjectPattern | t.RestElement).typeAnnotation;
+              let returnType = methods.get.node.returnType;
+              let paramType = (methods.set.node.params[0] as t.ArrayPattern | t.AssignmentPattern | t.Identifier | t.ObjectPattern | t.RestElement).typeAnnotation;
               if (returnType && paramType) {
                 // TODO throw if mismatch
               } else if (returnType) {
-                (methods.set.params[0] as t.ArrayPattern | t.AssignmentPattern | t.Identifier | t.ObjectPattern | t.RestElement).typeAnnotation =
+                (methods.set.node.params[0] as t.ArrayPattern | t.AssignmentPattern | t.Identifier | t.ObjectPattern | t.RestElement).typeAnnotation =
                   t.cloneNode(returnType);
               } else if (paramType) {
-                methods.get.returnType = t.cloneNode(paramType);
+                methods.get.node.returnType = t.cloneNode(paramType);
               } else {
-                throw new Error("At least one of getter and setter should have a type annotation")
+                const [_typeParams, _params, inferred] = inferFunctionType(methods.get.node, path, InferApproach.Default);
+                if (!inferred) {
+                  throw path.buildCodeFrameError("At least one of getter and setter should have a type annotation");
+                }
+                methods.get.node.returnType = inferred;
+                (methods.set.node.params[0] as t.ArrayPattern | t.AssignmentPattern | t.Identifier | t.ObjectPattern | t.RestElement).typeAnnotation =
+                  t.cloneNode(inferred);
               }
             } else if (methods.set) {
-              let paramType = (methods.set.params[0] as t.ArrayPattern | t.AssignmentPattern | t.Identifier | t.ObjectPattern | t.RestElement).typeAnnotation;
+              let paramType = (methods.set.node.params[0] as t.ArrayPattern | t.AssignmentPattern | t.Identifier | t.ObjectPattern | t.RestElement).typeAnnotation;
               if (!paramType) {
-                throw new Error("Setter parameter should have a type annotation");
+                throw methods.set.buildCodeFrameError("Setter parameter should have a type annotation");
               }
             } else {
-              let returnType = methods.get!.returnType;
+              let returnType = methods.get!.node.returnType;
               if (!returnType) {
-                throw new Error("Getter should have a return type annotation");
+                throw methods.get!.buildCodeFrameError("Getter should have a return type annotation");
               }
             }
+            //         const newNode = translateClassMethod(node, path, typeParameters, params, returnType);
+
           }
 
           //   const getterOrSetter = gettersAndSetters.get(node.key);
